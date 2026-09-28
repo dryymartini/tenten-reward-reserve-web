@@ -215,7 +215,7 @@
       if (j.is_verified === true) { el.textContent = 'verified · ' + (j.is_fully_verified ? 'full match' : 'partial match') + (j.name ? ' · ' + j.name : ''); el.classList.add('ok'); }
     }).catch(function () { });
   });
-  badge(['badge2'], 'TESTNET');
+  badge(['badge2'], C.network === 'mainnet' ? 'MAINNET' : 'TESTNET');
 
   // ------------------------------------------------------------ address lookup + epoch reconciliation
   var addrInput = $('#addr'), lookupForm = $('#lookup'), lookupMsg = $('#lookupMsg'), meOut = $('#meOut');

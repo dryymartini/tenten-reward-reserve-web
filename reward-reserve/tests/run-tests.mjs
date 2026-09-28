@@ -2,7 +2,7 @@
 // Render / safety tests for the Reward Reserve V2 page (Playwright, headless).
 // Usage:  node tests/run-tests.mjs            (from the reward-reserve folder)
 // Nothing here is used by the production page. All chain state is synthetic
-// (this is a TEST network deploy anyway). Scenarios:
+// (mocked RPC + wallet — no real network or funds involved). Scenarios:
 //   no-wallet        no injected wallet, no epoch source configured
 //   epoch-unavail     wallet connects, but epoch JSON source not configured
 //   claim-ready       full path: connect, see a claimable epoch, claim it
@@ -27,16 +27,16 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = path.join(ROOT, 'tests', 'out');
 fs.mkdirSync(OUT, { recursive: true });
 
-const R = '0x481a383663cf8faab689294e59877e9f58898ed1';
-const TEN = '0x6dfb394dbd23e6df7b635e64a6ed1b98c629edc7';
-const SNET = '0x138a749c3080e324c4f322c3c5ff1000721196d9';
+const R = '0xc05ddfbd4f9a46ae297b286d4d6998a0c0ea27fe';
+const TEN = '0xc4f021c73a5b6ffae6c43515f0a4bbf615b31c7b';
+const SNET = '0xb773ec2c326b7f98a5a83fc098825492f020a4c7';
 const HOLDER = '0x784a7839a555773a57eee471b9cf9e076f2287e4'; // matches the fixture epoch JSON below
 const OTHER = '0x000000000000000000000000000000000000be01';
 
 // ---------------------------------------------------------------- static server (page + fixture epoch JSON)
 const MIME = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.webp': 'image/webp', '.svg': 'image/svg+xml', '.json': 'application/json' };
 const EPOCH_1 = {
-  epochId: 1, snapshotTime: 1790622928, chainId: 46630, token: '0x6dFb394DbD23e6DF7b635E64a6eD1B98c629edC7', reserve: '0x481a383663CF8fAAb689294E59877E9f58898Ed1',
+  epochId: 1, snapshotTime: 1790622928, chainId: 4663, token: '0xC4F021c73A5b6fFae6C43515f0a4BbF615B31c7b', reserve: '0xC05ddFbd4f9a46ae297b286D4D6998a0c0Ea27FE',
   budget: { units: 'sNET', committedTotal: '250000000000' },
   eligibility: { minDays: 30 },
   totals: { eligibleHolders: '1', totalEligibleBalance: '990000000000000000000000' },
@@ -63,7 +63,7 @@ await new Promise(r => server.listen(8767, r));
 const URL0 = 'http://127.0.0.1:8767/reward-reserve/';
 const EPOCHS_BASE = 'http://127.0.0.1:8767/epochs';
 
-// ---------------------------------------------------------------- mock read-RPC (rpc.testnet.chain.robinhood.com)
+// ---------------------------------------------------------------- mock read-RPC (rpc.mainnet.chain.robinhood.com)
 const w = n => '0x' + BigInt(n).toString(16).padStart(64, '0');
 function makeRpc(opts) {
   return function handle(req) {
@@ -112,7 +112,7 @@ function walletInitScript(account) {
       request: async ({ method, params }) => {
         window.__rrWalletLog.push(method);
         if (method === 'eth_requestAccounts') return [acct];
-        if (method === 'eth_chainId') return '0xb626';
+        if (method === 'eth_chainId') return '0x1237';
         if (method === 'wallet_switchEthereumChain') return null;
         if (method === 'wallet_addEthereumChain') return null;
         if (method === 'eth_sendTransaction') { window.__rrLastTx = params[0]; return '0x' + '11'.repeat(32); }
@@ -145,7 +145,7 @@ async function scenario(name, { rpc, wallet, epochsBaseUrl, autoConnect = true, 
       }
       return route.continue();
     }
-    if (u.startsWith('https://rpc.testnet.chain.robinhood.com') && rpc) return rpcRoute(rpc, rpcLog)(route);
+    if (u.startsWith('https://rpc.mainnet.chain.robinhood.com') && rpc) return rpcRoute(rpc, rpcLog)(route);
     if (u.includes('/api/v2/smart-contracts/')) return route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
     return route.abort('connectionrefused');
   });

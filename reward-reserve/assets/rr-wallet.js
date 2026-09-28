@@ -45,7 +45,7 @@
 
   function disconnect() { state.address = null; emit(); }
 
-  /** Switches (or adds) the wallet to Robinhood Chain Testnet. Never silently sends funds. */
+  /** Switches (or adds) the wallet to the configured Robinhood Chain network. Never silently sends funds. */
   function ensureChain() {
     var p = provider(); if (!p) return Promise.resolve();
     if (state.chainId === C.chainIdHex) return Promise.resolve();

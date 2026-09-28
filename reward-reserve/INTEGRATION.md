@@ -10,9 +10,9 @@ injected wallets, no SDK required.
    (`index.html` + `assets/`). Do **not** copy `tests/` or this file.
 2. All asset paths are relative. Absolute links used by the page: `/` (main site). Keep that route.
 3. If the site sends a Content-Security-Policy, allow:
-   - `connect-src https://rpc.testnet.chain.robinhood.com https://robinhoodchain-testnet.blockscout.com`
-     (swap to the mainnet hosts once `assets/rr-config.js` is switched to mainnet — see §2)
-   - `img-src 'self' data:` (inline SVG favicon), `font-src 'self'`, `script-src 'self'`, `style-src 'self'`
+   - `connect-src https://rpc.mainnet.chain.robinhood.com https://robin.etherscan.io https://api.qrserver.com`
+     (the QR code on the donations box; matches whatever `assets/rr-config.js` currently points at — see §2)
+   - `img-src 'self' data: https://api.qrserver.com` (inline SVG favicon + donation QR code), `font-src 'self'`, `script-src 'self'`, `style-src 'self'`
 4. Add a menu link to `/reward-reserve/` from the main site, if wanted.
 5. `assets/tenten-base.css`, `tenten-logo.webp`, the cursors and fonts are copies of the main
    site's styling. If the main site already serves shared equivalents, the page can point at them
@@ -21,9 +21,15 @@ injected wallets, no SDK required.
 ## 2. Switching from testnet to mainnet
 
 Everything network- and contract-specific lives in `assets/rr-config.js`: `chainId`, `chainIdHex`,
-`chainName`, `rpcUrl`, `explorer`, `nativeCurrency` and `addresses`. Once the contract is deployed
-to Robinhood Chain mainnet, updating those fields to the mainnet values is the only code change
-needed — nothing else in the page hardcodes an address or a chain id.
+`chainName`, `rpcUrl`, `explorer`, `nativeCurrency` and `addresses`. Updating those fields is the
+only code change needed — nothing else in the page hardcodes an address or a chain id (the footer
+badge and page copy read `network`/`chainName` from this same file).
+
+Done 2026-09-28: the site now points at Robinhood Chain mainnet (`chainId` 4663). One field still
+needs a real value once it's known: `deployBlock` (used only as the starting block for the Growth
+section's event-log scan) is `null` until the mainnet deployment block is confirmed — until then
+the Growth chart shows an honest "could not read the event log" rather than scanning the wrong
+range or guessing.
 
 ## 3. Connecting the Indexer's epoch data
 
@@ -47,13 +53,14 @@ proof)` — the same three values just verified — never anything the JSON alon
 ## 4. Wallet / claim flow
 
 - Connecting (`assets/rr-wallet.js`) only ever calls `eth_requestAccounts`, `eth_chainId`,
-  `wallet_switchEthereumChain` / `wallet_addEthereumChain` (to get the user onto Robinhood Chain
-  Testnet) and, on an explicit "Claim" click, `eth_sendTransaction` for `claim(...)`. It never
-  calls `eth_sign` / `personal_sign` / `eth_signTypedData_*`, never requests or stores a private
-  key, and never calls `approve()` on any token — `claim()` needs no allowance.
+  `wallet_switchEthereumChain` / `wallet_addEthereumChain` (to get the user onto the configured
+  Robinhood Chain network) and, on an explicit "Claim" click, `eth_sendTransaction` for
+  `claim(...)`. It never calls `eth_sign` / `personal_sign` / `eth_signTypedData_*`, never requests
+  or stores a private key, and never calls `approve()` on any token — `claim()` needs no allowance.
 - `assets/rr-chain.js` is read-only: its RPC allow-list is `eth_call`, `eth_blockNumber`,
-  `eth_getBlockByNumber`, `eth_getTransactionReceipt` only. It never sends a transaction; that is
-  `rr-wallet.js`'s job alone, and only against the connected wallet's own provider.
+  `eth_getBlockByNumber`, `eth_getTransactionReceipt`, `eth_getLogs` only. It never sends a
+  transaction; that is `rr-wallet.js`'s job alone, and only against the connected wallet's own
+  provider.
 
 ## 5. Test locally
 

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>TEN Reward Reserve · TenTen Capital</title>
-<meta name="description" content="TEN Reward Reserve: connect your wallet, check your weekly sNET allocation and claim it. Robinhood Chain Testnet.">
+<meta name="description" content="TEN Reward Reserve: connect your wallet, check your weekly sNET allocation and claim it. Robinhood Chain mainnet.">
 <meta name="theme-color" content="#1E4A2F">
 <link rel="canonical" href="https://tentencapital.net/reward-reserve/">
 <meta property="og:type" content="website">
@@ -20,13 +20,13 @@
 <div class="wrap">
 
   <div class="strip out" style="margin-top:14px"><i></i><a href="/">TenTen Capital · Reward Reserve · back to the terminal</a></div>
-  <div class="strip out warn-strip"><i>!</i><span>Robinhood Chain <b>TESTNET</b> · test funds only, nothing here is real value yet</span></div>
+  <div class="strip out"><i></i><span>Robinhood Chain <b>mainnet</b> · live</span></div>
 
   <header class="win out" id="top">
     <div class="mast">
       <img class="logo" src="assets/tenten-logo.webp" alt="TenTen Capital logo: a serif T with an orbit ring on green" width="64" height="64">
       <h1>Reward <em>Reserve</em></h1>
-      <p class="sub">Hold TEN 30+ days · claim your weekly sNET share · Robinhood Chain Testnet<br><code data-l="rAddr">REWARD RESERVE --</code></p>
+      <p class="sub">Hold TEN 30+ days · claim your weekly sNET share · Robinhood Chain mainnet<br><code data-l="rAddr">REWARD RESERVE --</code></p>
     </div>
     <div class="lcds" data-mod="chain">
       <div class="lcd in"><div class="k">sNET in the Reserve</div><div class="v" data-l="mon_snet">--</div><div class="s">sNET.balanceOf(reserve)</div></div>
@@ -70,7 +70,7 @@
             <div><span>Eligible TEN · latest epoch</span><b data-l="ov_eligTotal">--</b></div>
             <div><span>Read at block</span><b data-l="ov_block">--</b></div>
           </div>
-          <p class="st"><b data-l="badge">LOADING</b> <span data-l="updated">connecting to Robinhood Chain Testnet…</span></p>
+          <p class="st"><b data-l="badge">LOADING</b> <span data-l="updated">connecting to Robinhood Chain…</span></p>
         </div>
       </div>
       <div class="alert" data-l-alert="overview" hidden></div>
@@ -98,7 +98,7 @@
         <div><i class="ok">✓</i><span>Every allocation is checked against the contract's own <code>verifyAllocation()</code> before the claim button is enabled.</span></div>
         <div><i class="ok">✓</i><span>You sign every transaction yourself, in your own wallet.</span></div>
       </div>
-      <p class="warn" style="margin-top:14px">Currently on Robinhood Chain <b>Testnet</b>: the contract was deployed recently, so the first weekly distribution isn't possible yet (it needs 7 real days since the first funding). Balance and eligibility reads already work live; claiming will start working once the first epoch is published.</p>
+      <p class="intro" style="margin-top:14px">Live on Robinhood Chain <b>mainnet</b>. Balance and eligibility reads work live against the contract; claiming works once an epoch is published — check the table below for your address.</p>
     </div>
   </section>
 
@@ -181,8 +181,8 @@ principalValue()  holderSideValue()  outstandingLiabilityValue()  isSolvent()  l
   </section>
 
   <footer class="status out">
-    <div class="cells"><span><i></i>REWARD RESERVE v2</span><span>Robinhood Chain Testnet</span><span>TEN · NET · sNET</span><span data-l="badge2">LOADING</span><span>WALLET REQUIRED TO CLAIM</span><span>10/10</span></div>
-    <p>The Reward Reserve is a community contract around TEN, an unofficial meme token quoted in a permissionless asset (NET). Not affiliated with Robinhood, PAR or NetNet. Currently deployed on a TEST network with fake funds — nothing shown here is real value. Nothing here is financial advice.</p>
+    <div class="cells"><span><i></i>REWARD RESERVE v2</span><span>Robinhood Chain mainnet</span><span>TEN · NET · sNET</span><span data-l="badge2">LOADING</span><span>WALLET REQUIRED TO CLAIM</span><span>10/10</span></div>
+    <p>The Reward Reserve is a community contract around TEN, an unofficial meme token quoted in a permissionless asset (NET). Not affiliated with Robinhood, PAR or NetNet. Deployed on Robinhood Chain mainnet — this involves real funds. Nothing here is financial advice.</p>
     <p>This site never asks for your seed phrase or private key. You connect your own wallet and sign your own transactions. REWARD RESERVE <code data-l="rAddr2">--</code> · © 2026 TenTen Capital</p>
   </footer>
 
