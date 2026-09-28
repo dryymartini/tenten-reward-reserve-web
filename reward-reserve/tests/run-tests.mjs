@@ -67,13 +67,16 @@ const EPOCHS_BASE = 'http://127.0.0.1:8767/epochs';
 
 // ---------------------------------------------------------------- mock read-RPC (rpc.mainnet.chain.robinhood.com)
 const w = n => '0x' + BigInt(n).toString(16).padStart(64, '0');
+// Above the real deployBlock (75119527) so getLogsPaged's window loop actually runs and reaches
+// the mocked eth_getLogs, instead of computing zero windows and short-circuiting to [].
+const HEAD_BLOCK = 75130000;
 function makeRpc(opts) {
   return function handle(req) {
     const { method, params } = req;
-    if (method === 'eth_getBlockByNumber') return { number: '0x64', timestamp: '0x' + Math.floor(Date.now() / 1000).toString(16) };
-    if (method === 'eth_blockNumber') return '0x64';
+    if (method === 'eth_getBlockByNumber') return { number: '0x' + HEAD_BLOCK.toString(16), timestamp: '0x' + Math.floor(Date.now() / 1000).toString(16) };
+    if (method === 'eth_blockNumber') return '0x' + HEAD_BLOCK.toString(16);
     if (method === 'eth_getTransactionReceipt') return opts.receipt ? opts.receipt(params[0]) : null;
-    if (method === 'eth_getLogs') return opts.logs || []; // never fabricated: default is "no events yet"
+    if (method === 'eth_getLogs') { if (opts.logsFail) throw { code: -32000, message: 'query spans too many blocks (mocked failure)' }; return opts.logs || []; } // never fabricated: default is "no events yet"
     if (method === 'eth_call') {
       const to = params[0].to.toLowerCase(), data = params[0].data.toLowerCase(), sel = data.slice(0, 10);
       if (to === R) {
@@ -192,7 +195,10 @@ async function scenario(name, { rpc, wallet, epochsBaseUrl, autoConnect = true, 
     monTenUsd: document.querySelector('[data-l="mon_ten_usd"]').textContent,
     ovPrincipalUsd: document.querySelector('[data-l="ov_principal_usd"]').textContent,
     mBalUsd: document.querySelector('[data-l="m_bal_usd"]') ? document.querySelector('[data-l="m_bal_usd"]').textContent : null,
-    mToClaimUsd: document.querySelector('[data-l="m_toClaim_usd"]') ? document.querySelector('[data-l="m_toClaim_usd"]').textContent : null
+    mToClaimUsd: document.querySelector('[data-l="m_toClaim_usd"]') ? document.querySelector('[data-l="m_toClaim_usd"]').textContent : null,
+    gLivePrincipal: document.querySelector('[data-l="gLivePrincipal"]') ? document.querySelector('[data-l="gLivePrincipal"]').textContent : null,
+    gLiveLiab: document.querySelector('[data-l="gLiveLiab"]') ? document.querySelector('[data-l="gLiveLiab"]').textContent : null,
+    gLiveAsOf: document.querySelector('[data-l="gLiveAsOf"]') ? document.querySelector('[data-l="gLiveAsOf"]').textContent : null
   }));
   const shot = path.join(OUT, `${name}.png`);
   await page.screenshot({ path: shot, fullPage: true });
@@ -244,6 +250,11 @@ await scenario('countdown-overdue', { rpc: makeRpc({ latestEpochId: 0, lastCryst
 // stay blank), never a guessed or partial number
 await scenario('price-fail', { rpc: makeRpc({ latestEpochId: 0, priceFail: true }), wallet: null, addr: null });
 
+// growth chart's event-log read fails (e.g. the real "query spans too many blocks" RPC error)
+// -> the historical chart must show an explicit error, but the "live" point (read separately in
+// refreshOverview, not from the event log) must still render and update
+await scenario('growth-log-fail', { rpc: makeRpc({ latestEpochId: 0, logsFail: true }), wallet: null, addr: null });
+
 await browser.close(); server.close();
 fs.writeFileSync(path.join(OUT, 'results.json'), JSON.stringify(results, null, 1));
 for (const r of results) console.log(`${r.name.padEnd(16)} badge=${(r.badge||'').padEnd(8)} netchip=${(r.netchip||'').padEnd(28)} toClaim=${r.toClaim} claimed=${r.claimed} overflowX=${r.overflowX} errors=${r.errors.length}`);
@@ -290,12 +301,24 @@ if (overdue.monCountdown.trim() !== 'Ready') bad.push('countdown-overdue: a past
 
 // ---- growth chart: no events -> explicit empty state, never a fabricated trend; with
 // events -> counts them but must not claim to show exact principal/reward/unclaimed values
-for (const r of results.filter(r => r.name !== 'growth-events')) {
-  if (!/^0 events/i.test(r.gTotal) || !/no on-chain history/i.test(r.gNote)) bad.push(r.name + ': growth chart with no on-chain events must say so explicitly, not show a fabricated series (gTotal=' + r.gTotal + ')');
+for (const r of results.filter(r => r.name !== 'growth-events' && r.name !== 'growth-log-fail')) {
+  if (!/^0 events/i.test(r.gTotal) || !/no history before this point/i.test(r.gNote)) bad.push(r.name + ': growth chart with no on-chain events must say so explicitly, not show a fabricated series (gTotal=' + r.gTotal + ')');
 }
 const growth = results.find(r => r.name === 'growth-events');
 if (!/^4 /.test(growth.gTotal)) bad.push('growth-events: expected the mocked 4 events to be counted, got: ' + growth.gTotal);
 if (!/pending confirmation/i.test(growth.gNote)) bad.push('growth-events: must flag that exact values are pending event-ABI confirmation rather than plotting guessed numbers');
+
+// ---- growth "live" point: populated from refreshOverview's own reads, so it must render on
+// every scenario regardless of the event-log outcome, and must NOT be hidden when the event-log
+// read itself fails (that's the whole point of decoupling it)
+for (const r of results) {
+  if (!r.gLivePrincipal || r.gLivePrincipal === '--') bad.push(r.name + ': growth "live" principal point did not render');
+  if (!r.gLiveLiab || r.gLiveLiab === '--') bad.push(r.name + ': growth "live" unclaimed point did not render');
+  if (!r.gLiveAsOf) bad.push(r.name + ': growth "live" point is missing its as-of block label');
+}
+const logFail = results.find(r => r.name === 'growth-log-fail');
+if (!/unavailable/i.test(logFail.gTotal)) bad.push('growth-log-fail: event-log read failure should show an explicit error, got gTotal=' + logFail.gTotal);
+if (!logFail.gLivePrincipal || logFail.gLivePrincipal === '--') bad.push('growth-log-fail: the live point must still render even when the historical event-log read fails');
 
 // ---- personal dashboard extras: eligibility/lots/share render from the epoch JSON already fetched for the claim flow
 const withLots = results.find(r => r.name === 'claim-ready');

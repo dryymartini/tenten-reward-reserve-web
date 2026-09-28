@@ -29,9 +29,9 @@
       <p class="sub">Hold TEN 30+ days · claim your weekly sNET share · Robinhood Chain mainnet<br><code data-l="rAddr">REWARD RESERVE --</code></p>
     </div>
     <div class="lcds" data-mod="chain">
-      <div class="lcd in"><div class="k">sNET in the Reserve</div><div class="v" data-l="mon_snet">--</div><div class="s">sNET.balanceOf(reserve)</div><div class="usd" data-l="mon_snet_usd"></div></div>
-      <div class="lcd in"><div class="k">TEN in the Reserve</div><div class="v" data-l="mon_ten">--</div><div class="s">TEN.balanceOf(reserve)</div><div class="usd" data-l="mon_ten_usd"></div></div>
-      <div class="lcd in"><div class="k">Next distribution</div><div class="v" data-l="mon_countdown">--</div><div class="s" data-l="mon_countdownSub">lastCrystallization() + CRYSTALLIZATION_PERIOD()</div></div>
+      <div class="lcd in"><div class="k">sNET in the Reserve</div><div class="v" data-l="mon_snet">--</div><div class="usd" data-l="mon_snet_usd"></div></div>
+      <div class="lcd in"><div class="k">TEN in the Reserve</div><div class="v" data-l="mon_ten">--</div><div class="usd" data-l="mon_ten_usd"></div></div>
+      <div class="lcd in"><div class="k">Next distribution</div><div class="v" data-l="mon_countdown">--</div></div>
     </div>
     <div class="walletbar" id="walletbar">
       <div class="netchip" id="netchip"><span data-l="netchipText">checking wallet…</span></div>
@@ -107,6 +107,12 @@
   <section class="win out" id="growth" data-mod="logs">
     <div class="bar"><span>Growth · principal, rewards &amp; unclaimed</span><span class="btns"><button type="button" data-min aria-label="Minimize">_</button><button type="button" aria-label="Maximize">□</button><button type="button" aria-label="Close">×</button></span></div>
     <div class="lcd in growth">
+      <div class="glive">
+        <span class="k">Current · live</span>
+        <span class="gv"><b data-l="gLivePrincipal">--</b><small>principal</small></span>
+        <span class="gv"><b data-l="gLiveLiab">--</b><small>unclaimed</small></span>
+        <span class="asof" data-l="gLiveAsOf"></span>
+      </div>
       <div class="head"><span>SINCE DEPLOY · EVENT LOG</span><span data-l="gTotal">READING…</span></div>
       <div class="gchart" id="gChart"><svg viewBox="0 0 1000 300" preserveAspectRatio="none" role="img" aria-label="Principal, next-round rewards and unclaimed rewards over time"></svg></div>
       <div class="stacklg" style="margin-top:10px"><span><i class="c1"></i>sNET principal</span><span><i class="c3"></i>next round rewards</span><span><i class="c5"></i>unclaimed rewards</span></div>
@@ -127,10 +133,10 @@
 
       <div id="meOut" class="meout" hidden>
         <div class="lcds trk-lcds">
-          <div class="lcd in"><div class="k">TEN balance</div><div class="v" data-l="m_bal">--</div><div class="s">on chain · TEN.balanceOf</div><div class="usd" data-l="m_bal_usd"></div></div>
+          <div class="lcd in"><div class="k">TEN balance</div><div class="v" data-l="m_bal">--</div><div class="usd" data-l="m_bal_usd"></div></div>
           <div class="lcd in"><div class="k">Eligible TEN</div><div class="v" data-l="m_elig">--</div><div class="s" data-l="m_eligSub">latest published epoch</div><div class="usd" data-l="m_elig_usd"></div></div>
-          <div class="lcd in"><div class="k">To claim</div><div class="v" data-l="m_toClaim">--</div><div class="s">verified against the contract</div><div class="usd" data-l="m_toClaim_usd"></div></div>
-          <div class="lcd in"><div class="k">Claimed</div><div class="v" data-l="m_claimed">--</div><div class="s">sum of claimed epochs</div><div class="usd" data-l="m_claimed_usd"></div></div>
+          <div class="lcd in"><div class="k">To claim</div><div class="v" data-l="m_toClaim">--</div><div class="usd" data-l="m_toClaim_usd"></div></div>
+          <div class="lcd in"><div class="k">Claimed</div><div class="v" data-l="m_claimed">--</div><div class="usd" data-l="m_claimed_usd"></div></div>
         </div>
 
         <div class="kv" id="eligDetail" style="margin-top:6px">

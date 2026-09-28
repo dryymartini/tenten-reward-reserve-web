@@ -74,6 +74,12 @@
 .gchart .msg{fill:var(--ph-dim);font-family:var(--lcdf);font-size:20px;letter-spacing:.12em}
 .gchart .msg2{fill:var(--ph-dim);font-family:var(--lcdf);font-size:16px;letter-spacing:.06em}
 .growth .rounds{margin-top:10px}
+.glive{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 16px;padding-bottom:8px;margin-bottom:8px;border-bottom:1px dotted rgba(107,245,154,.3);font-family:var(--lcdf)}
+.glive .k{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--ph-dim);text-shadow:none}
+.glive .gv{font-size:18px}
+.glive .gv small{font-size:13px;color:var(--ph-dim);text-shadow:none;margin-left:4px}
+.glive .asof{margin-left:auto;font-size:12px;color:var(--ph-dim);text-shadow:none}
+@media(max-width:520px){.glive .asof{margin-left:0;flex-basis:100%}}
 
 /* ---- holder lookup ----------------------------------------------------- */
 .meout{margin-top:12px;display:grid;gap:10px}
@@ -195,8 +201,11 @@ table.lots.bsheet tr.total td{border-top:2px solid var(--ink);border-bottom:none
 table.lots.light td.ok{color:var(--title);font-weight:700}
 table.lots.light td.bad{color:#9A2E2E}
 
-/* ---- $ estimates (spot price, illiquid pool — always "≈", never exact) - */
-.lcd .usd{font-size:14px;color:var(--ph-dim);text-shadow:none;letter-spacing:.02em;margin-top:1px;min-height:1em}
+/* ---- $ estimates (spot price, illiquid pool — always "≈", never exact) --
+   Now the only secondary line under the token amount (the old technical
+   captions were removed 2026-09-28), so it's sized to read as a real
+   value, just dimmer than the primary .v line above it. */
+.lcd .usd{font-size:clamp(16px,2.2vw,20px);color:var(--ph);text-shadow:0 0 4px var(--ph-glow);opacity:.75;letter-spacing:.02em;margin-top:2px;min-height:1.2em}
 .lcd .usd:empty{display:none}
 .kvv{display:grid;justify-items:end;gap:0;text-align:right}
 .kvv .usd{font-size:11px;letter-spacing:.06em;color:var(--ink-2);text-shadow:none}

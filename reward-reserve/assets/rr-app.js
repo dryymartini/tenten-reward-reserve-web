@@ -147,6 +147,11 @@
         S('mon_snet_usd', usdLabel(snetInReserve, DEC.snet, 'net')); S('mon_ten_usd', usdLabel(tenInReserve, DEC.ten, 'ten'));
         S('ov_principal_usd', usdLabel(principal, DEC.snet, 'net')); S('ov_holderside_usd', usdLabel(holderside, DEC.snet, 'net')); S('ov_liab_usd', usdLabel(liab, DEC.snet, 'net'));
 
+        // Growth section's "live" point: the same principal/liability values just read here,
+        // shown independently of the historical event-log fetch below — so it still appears
+        // and updates even when that fetch fails (see refreshGrowth()).
+        S('gLivePrincipal', sn(principal)); S('gLiveLiab', sn(liab)); S('gLiveAsOf', 'as of block ' + num(head.number));
+
         var lastCryst = CH.u(r[5], 0), period = CH.u(r[6], 0);
         if (lastCryst === 0n) {
           countdownNotFunded = true; countdownRemain = null;
@@ -184,17 +189,23 @@
   // parameter types and indexed/non-indexed layout for Crystallized / EpochPublished /
   // AllocationClaimed, which is not yet confirmed — so this only counts and dates events
   // rather than guessing a field layout and risking a fabricated number.
+  // This is entirely independent of the "live" point above (populated in refreshOverview from
+  // values already read every 60s): a failure here never hides or blocks that live point.
   function refreshGrowth() {
     var svg = $('#gChart svg'); if (!svg) return;
     function showMsg(l1, l2) {
       svg.innerHTML = '<text class="msg" x="500" y="140" text-anchor="middle">' + esc(l1) + '</text>' +
         (l2 ? '<text class="msg2" x="500" y="168" text-anchor="middle">' + esc(l2) + '</text>' : '');
     }
+    if (C.deployBlock == null) {
+      S('gTotal', 'UNAVAILABLE'); S('gNote', "The contract's deploy block isn't configured yet, so the event-log range can't be scanned safely.");
+      showMsg('DEPLOY BLOCK NOT SET'); return;
+    }
     showMsg('READING EVENT LOG…');
-    CH.getLogs(R, [[CH.TOPICS.Crystallized, CH.TOPICS.EpochPublished, CH.TOPICS.AllocationClaimed]], C.deployBlock).then(function (logs) {
+    CH.getLogsPaged(R, [[CH.TOPICS.Crystallized, CH.TOPICS.EpochPublished, CH.TOPICS.AllocationClaimed]], C.deployBlock).then(function (logs) {
       if (!logs.length) {
-        S('gTotal', '0 EVENTS'); S('gNote', 'No on-chain history yet since deploy — this fills in as Crystallized / EpochPublished / AllocationClaimed events happen. Nothing is shown rather than an invented trend.');
-        showMsg('NO EVENTS YET', 'chart fills in once the reserve crystallizes'); return;
+        S('gTotal', '0 EVENTS'); S('gNote', 'No history before this point yet — this fills in as Crystallized / EpochPublished / AllocationClaimed events happen. Nothing is shown rather than an invented trend.');
+        showMsg('NO HISTORY BEFORE THIS POINT', 'chart fills in once the reserve crystallizes'); return;
       }
       var byTopic = { c: 0, e: 0, a: 0 };
       logs.forEach(function (l) {

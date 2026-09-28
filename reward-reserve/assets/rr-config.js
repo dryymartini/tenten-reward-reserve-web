@@ -40,12 +40,10 @@ window.RR_CONFIG = Object.freeze({
     netDecimals: 9 // pool token1 (NET) — order confirmed by Matteo, never inverted
   }),
 
-  // Mainnet deploy block is not yet known (Matteo's 2026-09-28 mainnet config didn't
-  // include one) — left unset rather than reusing the old testnet approximation, which
-  // would be wrong here. Until this is filled in, the Growth chart's eth_getLogs will
-  // fail cleanly (shows "could not read the event log") instead of scanning the wrong
-  // range or fabricating a result.
-  deployBlock: null,
+  // Real mainnet deploy block, given by Matteo 2026-09-28 (the earlier `null` placeholder
+  // caused eth_getLogs to scan fromBlock 0, which the RPC node rejects: "only 100000 blocks
+  // allowed per request"). Used as the Growth section's eth_getLogs starting point.
+  deployBlock: 75119527,
 
   /* --------------------------------------------------------------------------
      Epoch data published by the off-chain Indexer (not part of this site).

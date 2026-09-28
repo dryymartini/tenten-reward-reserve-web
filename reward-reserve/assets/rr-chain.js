@@ -115,11 +115,32 @@
   function ethCall(to, data, tag) { return ['eth_call', [{ to: to, data: data }, tag || 'latest']]; }
   function hexN(n) { return '0x' + Number(n).toString(16); }
 
-  /** One eth_getLogs call, fromBlock..latest. Volume here is a few dozen events a year at most. */
-  function getLogs(address, topics, fromBlock) {
-    var filt = { address: address, fromBlock: hexN(fromBlock), toBlock: 'latest' };
+  /** One eth_getLogs call over an explicit block range. */
+  function getLogs(address, topics, fromBlock, toBlock) {
+    var filt = { address: address, fromBlock: hexN(fromBlock), toBlock: toBlock == null ? 'latest' : hexN(toBlock) };
     if (topics) filt.topics = topics;
     return one(['eth_getLogs', [filt]]).then(function (r) { return r || []; });
+  }
+
+  /**
+   * getLogs, but windowed to stay under the RPC's per-request block-range limit (many nodes
+   * cap eth_getLogs at 100,000 blocks — a plain fromBlock..latest call can exceed that as the
+   * chain grows). maxWindow defaults conservatively under that cap. Windows are fetched
+   * sequentially and concatenated; volume here is a few dozen events a year at most, so this
+   * is a handful of extra round trips at worst, never a real cost.
+   */
+  function getLogsPaged(address, topics, fromBlock, maxWindow) {
+    maxWindow = maxWindow || 90000;
+    return one(['eth_blockNumber', []]).then(function (latestHex) {
+      var latest = Number(BigInt(latestHex)), from = Number(fromBlock);
+      var windows = [];
+      for (var start = from; start <= latest; start += maxWindow) windows.push([start, Math.min(start + maxWindow - 1, latest)]);
+      function run(i, acc) {
+        if (i >= windows.length) return acc;
+        return getLogs(address, topics, windows[i][0], windows[i][1]).then(function (logs) { return run(i + 1, acc.concat(logs)); });
+      }
+      return run(0, []);
+    });
   }
 
   // ---- units ----------------------------------------------------------------
@@ -150,7 +171,7 @@
     SEL: SEL, TOPICS: TOPICS,
     encUint: encUint, encAddr: encAddr, word: word, u: u, boolAt: boolAt, bytes32At: bytes32At, addrAt: addrAt, isAddress: isAddress,
     encVerifyAllocation: encVerifyAllocation, encClaim: encClaim, encBalanceOf: encBalanceOf, encEpochs: encEpochs, encClaimedBy: encClaimedBy,
-    ethCall: ethCall, hexN: hexN, getLogs: getLogs,
+    ethCall: ethCall, hexN: hexN, getLogs: getLogs, getLogsPaged: getLogsPaged,
     rpc: rpc, rpcSettled: rpcSettled, one: one,
     units: units, amt: amt, short: short
   };
