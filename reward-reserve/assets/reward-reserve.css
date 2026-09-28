@@ -155,9 +155,11 @@ table.lots.bsheet tr.sub td{color:var(--ink-2);font-style:italic}
 table.lots.bsheet tr.sub td.num{font-style:normal}
 table.lots.bsheet tr.total td{border-top:2px solid var(--ink);border-bottom:none;font-weight:700;padding-top:6px}
 
-/* growth chart: permanent principal (solid) vs reward pot (dashed) */
+/* growth chart: permanent principal (solid), next-round rewards (dashed),
+   unclaimed rewards (dotted, third color) */
 .gchart .pline{fill:none;stroke:var(--ph);stroke-width:3;stroke-linejoin:round;filter:drop-shadow(0 0 4px var(--ph-glow))}
 .gchart .rline{fill:none;stroke:var(--panel);stroke-width:3;stroke-dasharray:7 5;stroke-linejoin:round}
+.gchart .uline{fill:none;stroke:var(--ph-dim);stroke-width:3;stroke-dasharray:2 4;stroke-linejoin:round}
 
 /* narrow screens: the Share column would otherwise sit past the fold, needing
    an undiscoverable horizontal scroll; drop it and keep Holding + Carrying value */
@@ -166,12 +168,14 @@ table.lots.bsheet tr.total td{border-top:2px solid var(--ink);border-bottom:none
 /* visible checkpoint markers, so a flat (e.g. brand-new) line still reads as data, not empty grid */
 .gchart .pdot{fill:var(--ph);filter:drop-shadow(0 0 3px var(--ph-glow))}
 .gchart .rdot{fill:var(--lcd);stroke:var(--panel);stroke-width:2}
+.gchart .udot{fill:var(--lcd);stroke:var(--ph-dim);stroke-width:2}
 
 /* growth chart: hover crosshair + tooltip, like the site's other growth chart */
 .gchart .pghit{cursor:crosshair;pointer-events:all}
 .gchart .xline{stroke:var(--ph-dim);stroke-width:1;stroke-dasharray:3 3}
 .gchart .hp{fill:var(--lcd);stroke:var(--ph);stroke-width:2}
 .gchart .hr{fill:var(--lcd);stroke:var(--panel);stroke-width:2}
+.gchart .hu{fill:var(--lcd);stroke:var(--ph-dim);stroke-width:2}
 .gtip{position:absolute;top:10px;pointer-events:none;background:var(--lcd-2);border:1px solid var(--ph);color:var(--ph);font-family:var(--lcdf);font-size:15px;line-height:1.6;padding:8px 12px;white-space:nowrap;box-shadow:0 4px 14px rgba(0,0,0,.5);z-index:5;display:none}
 @media(max-width:520px){.gtip{font-size:13px;padding:6px 9px;white-space:normal;max-width:70%}}
 
@@ -185,3 +189,10 @@ table.lots.bsheet tr.total td{border-top:2px solid var(--ink);border-bottom:none
 .claimbar .b[disabled]{opacity:.4;cursor:default}
 table.lots.light td.ok{color:var(--title);font-weight:700}
 table.lots.light td.bad{color:#9A2E2E}
+
+/* ---- community donations --------------------------------------------- */
+.donaterow{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start;margin-top:4px}
+.donaterow .crow{flex:1 1 320px;min-width:0;border-bottom:none;padding:0}
+.donateqr{flex:0 0 auto;display:grid;justify-items:center;gap:4px}
+.donateqr img{width:132px;height:132px;background:#fff;padding:6px;border:2px solid;border-color:var(--lo) var(--hi) var(--hi) var(--lo)}
+.donateqr span{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-2)}

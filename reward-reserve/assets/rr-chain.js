@@ -3,18 +3,22 @@
    No wallet, no signer here: eth_sendTransaction / signing lives entirely in
    rr-wallet.js, which talks to the connected wallet's own EIP-1193 provider,
    never to this module. The only RPC methods this module ever sends are:
-     eth_call, eth_blockNumber, eth_getBlockByNumber, eth_getTransactionReceipt
+     eth_call, eth_blockNumber, eth_getBlockByNumber, eth_getTransactionReceipt, eth_getLogs
    Selectors below are keccak256(signature) computed and cross-checked offline
    against the TenRewardReserveV1 selectors already verified on Blockscout
    (function signatures — and therefore selectors — are unchanged in V2 for
-   every function reused here); holderSideValue() and leaf(...) are new to V2.
+   every function reused here); holderSideValue(), leaf(...), lastCrystallization()
+   and CRYSTALLIZATION_PERIOD() are new to V2. Event topics (TOPICS below) were
+   supplied directly and are used as given — this module has no way to recompute
+   a topic0 without the exact event parameter types, only to check a selector,
+   which has none of that ambiguity.
    ========================================================================== */
 (function () {
   'use strict';
   var C = window.RR_CONFIG;
 
   // ---- read-only method allow-list (defence in depth) ---------------------
-  var ALLOWED = { eth_call: 1, eth_blockNumber: 1, eth_getBlockByNumber: 1, eth_getTransactionReceipt: 1 };
+  var ALLOWED = { eth_call: 1, eth_blockNumber: 1, eth_getBlockByNumber: 1, eth_getTransactionReceipt: 1, eth_getLogs: 1 };
 
   // ---- selectors -----------------------------------------------------------
   var SEL = {
@@ -25,8 +29,19 @@
     claim: '0xae0b51df', // claim(uint256,uint256,bytes32[]) — encoded only for the read-only eth_call
                          // dry-run before showing the button as ready, and for the wallet to sign; this
                          // module itself never sends it
-    // ERC-20 (TEN)
+    lastCrystallization: '0xb53fdc08',   // lastCrystallization() -> uint256 timestamp
+    crystallizationPeriod: '0xf6257825', // CRYSTALLIZATION_PERIOD() -> uint256 seconds (verified: the
+                                          // solidity identifier is the all-caps constant name; the hash
+                                          // Matteo gave matches CRYSTALLIZATION_PERIOD(), not a
+                                          // camelCase crystallizationPeriod())
+    // ERC-20 (TEN / sNET)
     balanceOf: '0x70a08231'
+  };
+
+  var TOPICS = {
+    Crystallized:       '0xf4165e6a03db2f59ebd929ce3b1189f8f17451c4e5a5e95f0a0d8fa2163f208c',
+    EpochPublished:      '0x4b06ca08b73c7994c0673265cf727603b6487d8f60834d83b60d11a2e61b103f',
+    AllocationClaimed:   '0xee89b274de26d8ff2f7a29873f93a4aeb474c4aba006584d53c8a39e71f41d2a'
   };
 
   // ---- ABI encode/decode ---------------------------------------------------
@@ -94,6 +109,13 @@
   function ethCall(to, data, tag) { return ['eth_call', [{ to: to, data: data }, tag || 'latest']]; }
   function hexN(n) { return '0x' + Number(n).toString(16); }
 
+  /** One eth_getLogs call, fromBlock..latest. Volume here is a few dozen events a year at most. */
+  function getLogs(address, topics, fromBlock) {
+    var filt = { address: address, fromBlock: hexN(fromBlock), toBlock: 'latest' };
+    if (topics) filt.topics = topics;
+    return one(['eth_getLogs', [filt]]).then(function (r) { return r || []; });
+  }
+
   // ---- units ----------------------------------------------------------------
   /** BigInt -> decimal string with `dec` decimals, trimmed to `maxFrac` (floor). */
   function units(v, dec, maxFrac) {
@@ -119,10 +141,10 @@
 
   window.RR = window.RR || {};
   window.RR.chain = {
-    SEL: SEL,
+    SEL: SEL, TOPICS: TOPICS,
     encUint: encUint, encAddr: encAddr, word: word, u: u, boolAt: boolAt, bytes32At: bytes32At, addrAt: addrAt, isAddress: isAddress,
     encVerifyAllocation: encVerifyAllocation, encClaim: encClaim, encBalanceOf: encBalanceOf, encEpochs: encEpochs, encClaimedBy: encClaimedBy,
-    ethCall: ethCall, hexN: hexN,
+    ethCall: ethCall, hexN: hexN, getLogs: getLogs,
     rpc: rpc, rpcSettled: rpcSettled, one: one,
     units: units, amt: amt, short: short
   };

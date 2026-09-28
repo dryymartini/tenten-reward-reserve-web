@@ -39,7 +39,18 @@
       });
       if (bad) e.push('malformed holder entry');
       else if (d.budget && sum !== BigInt(d.budget.committedTotal)) e.push('sum(allocations) != budget.committedTotal');
+      // Optional fields (personal-dashboard extras): only checked when present, so an
+      // epoch file that predates them still validates — never required, never guessed.
+      Object.keys(d.holders).forEach(function (addr) {
+        var h = d.holders[addr];
+        if (h.shareBps != null && !UINT.test(String(h.shareBps))) e.push('holder ' + addr + ' shareBps');
+        if (h.lots != null) {
+          if (!Array.isArray(h.lots) || !h.lots.every(function (l) { return UINT.test(String(l.amount)) && Number.isFinite(l.days) && typeof l.eligible === 'boolean'; })) e.push('holder ' + addr + ' lots');
+        }
+      });
     }
+    if (d.eligibility != null && !(Number(d.eligibility.minDays) > 0)) e.push('eligibility.minDays');
+    if (d.totals != null && (!UINT.test(String(d.totals.eligibleHolders)) || !UINT.test(String(d.totals.totalEligibleBalance)))) e.push('totals');
     return e;
   }
 

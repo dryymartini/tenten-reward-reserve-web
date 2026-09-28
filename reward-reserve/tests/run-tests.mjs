@@ -29,6 +29,7 @@ fs.mkdirSync(OUT, { recursive: true });
 
 const R = '0x481a383663cf8faab689294e59877e9f58898ed1';
 const TEN = '0x6dfb394dbd23e6df7b635e64a6ed1b98c629edc7';
+const SNET = '0x138a749c3080e324c4f322c3c5ff1000721196d9';
 const HOLDER = '0x784a7839a555773a57eee471b9cf9e076f2287e4'; // matches the fixture epoch JSON below
 const OTHER = '0x000000000000000000000000000000000000be01';
 
@@ -37,7 +38,15 @@ const MIME = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript
 const EPOCH_1 = {
   epochId: 1, snapshotTime: 1790622928, chainId: 46630, token: '0x6dFb394DbD23e6DF7b635E64a6eD1B98c629edC7', reserve: '0x481a383663CF8fAAb689294E59877E9f58898Ed1',
   budget: { units: 'sNET', committedTotal: '250000000000' },
-  holders: { '0x784a7839A555773A57eEe471B9Cf9E076f2287E4': { balance: '990000000000000000000000', eligibleBalance: '990000000000000000000000', allocation: '250000000000', leaf: '0x' + '5c'.repeat(32), proof: [] } },
+  eligibility: { minDays: 30 },
+  totals: { eligibleHolders: '1', totalEligibleBalance: '990000000000000000000000' },
+  holders: {
+    '0x784a7839A555773A57eEe471B9Cf9E076f2287E4': {
+      balance: '990000000000000000000000', eligibleBalance: '990000000000000000000000', allocation: '250000000000',
+      leaf: '0x' + '5c'.repeat(32), proof: [], shareBps: '10000',
+      lots: [{ amount: '990000000000000000000000', since: 1787000000, days: 45, eligible: true }]
+    }
+  },
   ineligible: {}, tree: { root: '0x' + '5c'.repeat(32) }
 };
 const server = http.createServer((req, res) => {
@@ -59,9 +68,10 @@ const w = n => '0x' + BigInt(n).toString(16).padStart(64, '0');
 function makeRpc(opts) {
   return function handle(req) {
     const { method, params } = req;
-    if (method === 'eth_getBlockByNumber') return { number: '0x64', timestamp: w(Math.floor(Date.now() / 1000)).slice(0, 18) };
+    if (method === 'eth_getBlockByNumber') return { number: '0x64', timestamp: '0x' + Math.floor(Date.now() / 1000).toString(16) };
     if (method === 'eth_blockNumber') return '0x64';
     if (method === 'eth_getTransactionReceipt') return opts.receipt ? opts.receipt(params[0]) : null;
+    if (method === 'eth_getLogs') return opts.logs || []; // never fabricated: default is "no events yet"
     if (method === 'eth_call') {
       const to = params[0].to.toLowerCase(), data = params[0].data.toLowerCase(), sel = data.slice(0, 10);
       if (to === R) {
@@ -72,8 +82,11 @@ function makeRpc(opts) {
         if (sel === '0x73e2144f') return w(opts.latestEpochId ?? 1); // latestEpochId
         if (sel === '0xfef08fa4') return w(opts.claimed ? 1 : 0); // claimedBy
         if (sel === '0x1848f6ec') return w(opts.verify === false ? 0 : 1); // verifyAllocation
+        if (sel === '0xb53fdc08') return w(opts.lastCrystallization ?? 0); // lastCrystallization() — 0 = "not funded yet" by default
+        if (sel === '0xf6257825') return w(opts.crystallizationPeriod ?? 604800); // CRYSTALLIZATION_PERIOD() — default 7 days
       }
       if (to === TEN && sel === '0x70a08231') return w(opts.tenBalance ?? '990000000000000000000000'); // balanceOf
+      if (to === SNET && sel === '0x70a08231') return w(opts.snetBalance ?? '250000000000'); // balanceOf
       throw { code: -32000, message: 'execution reverted (no fixture for ' + sel + ')' };
     }
     throw { code: -32601, message: 'method not allowed in test: ' + method };
@@ -152,7 +165,18 @@ async function scenario(name, { rpc, wallet, epochsBaseUrl, autoConnect = true, 
     epochRows: document.querySelector('#epochRows') ? document.querySelector('#epochRows').innerText : null,
     claimAlert: document.querySelector('[data-l-alert="claim"]') ? document.querySelector('[data-l-alert="claim"]').textContent : null,
     claimBtnDisabled: document.querySelector('#claimBtn') ? document.querySelector('#claimBtn').disabled : null,
-    walletLog: window.__rrWalletLog || []
+    walletLog: window.__rrWalletLog || [],
+    monSnet: document.querySelector('[data-l="mon_snet"]').textContent,
+    monTen: document.querySelector('[data-l="mon_ten"]').textContent,
+    monCountdown: document.querySelector('[data-l="mon_countdown"]').textContent,
+    gTotal: document.querySelector('[data-l="gTotal"]').textContent,
+    gNote: document.querySelector('[data-l="gNote"]').textContent,
+    ovHolders: document.querySelector('[data-l="ov_holders"]').textContent,
+    ovEligTotal: document.querySelector('[data-l="ov_eligTotal"]').textContent,
+    eligYn: document.querySelector('[data-l="m_eligYn"]') ? document.querySelector('[data-l="m_eligYn"]').textContent : null,
+    share: document.querySelector('[data-l="m_share"]') ? document.querySelector('[data-l="m_share"]').textContent : null,
+    lotList: document.querySelector('#lotList') ? document.querySelector('#lotList').innerText : null,
+    donateAddr: document.querySelector('#donateBox code') ? document.querySelector('#donateBox code').textContent : null
   }));
   const shot = path.join(OUT, `${name}.png`);
   await page.screenshot({ path: shot, fullPage: true });
@@ -188,6 +212,18 @@ await scenario('epoch-unavail', { rpc: makeRpc({}), wallet: null, epochsBaseUrl:
 await scenario('claim-not-mine', { rpc: makeRpc({ verify: true, claimed: false }), wallet: OTHER, epochsBaseUrl: EPOCHS_BASE, addr: HOLDER });
 await scenario('claim-claimed', { rpc: makeRpc({ verify: true, claimed: true }), wallet: HOLDER, epochsBaseUrl: EPOCHS_BASE });
 
+// countdown target already in the past (lastCrystallization + period < now) -> must clamp to
+// "Ready", never show a negative duration
+await scenario('countdown-overdue', { rpc: makeRpc({ latestEpochId: 0, lastCrystallization: 1000, crystallizationPeriod: 1 }), wallet: null, addr: null });
+
+// growth chart with a handful of real events on the wire: must count/report them without
+// inventing the actual principal/reward/unclaimed numbers (event ABI not yet confirmed)
+{
+  const T = ['0xf4165e6a03db2f59ebd929ce3b1189f8f17451c4e5a5e95f0a0d8fa2163f208c', '0x4b06ca08b73c7994c0673265cf727603b6487d8f60834d83b60d11a2e61b103f', '0xee89b274de26d8ff2f7a29873f93a4aeb474c4aba006584d53c8a39e71f41d2a'];
+  const logs = [{ topics: [T[0]], data: '0x' }, { topics: [T[1]], data: '0x' }, { topics: [T[2]], data: '0x' }, { topics: [T[2]], data: '0x' }];
+  await scenario('growth-events', { rpc: makeRpc({ latestEpochId: 0, logs }), wallet: null, addr: null });
+}
+
 await browser.close(); server.close();
 fs.writeFileSync(path.join(OUT, 'results.json'), JSON.stringify(results, null, 1));
 for (const r of results) console.log(`${r.name.padEnd(16)} badge=${(r.badge||'').padEnd(8)} netchip=${(r.netchip||'').padEnd(28)} toClaim=${r.toClaim} claimed=${r.claimed} overflowX=${r.overflowX} errors=${r.errors.length}`);
@@ -222,6 +258,31 @@ if (claimed.claimBtnDisabled !== true) bad.push('claim-claimed: claim button mus
 
 const unavail = results.find(r => r.name === 'epoch-unavail');
 if (!/not configured/i.test(unavail.epochRows || '')) bad.push('epoch-unavail: must show an explicit "not configured" state, never fabricate epoch data');
+
+// ---- countdown: never negative, and the reserve+monitor boxes must always resolve
+for (const r of results) {
+  if (/^-/.test((r.monCountdown || '').trim())) bad.push(r.name + ': countdown showed a negative value: ' + r.monCountdown);
+  if (r.monSnet === '--' || r.monTen === '--') bad.push(r.name + ': monitor boxes never resolved (sNET/TEN reserve balances)');
+  if (!r.donateAddr) bad.push(r.name + ': donation box did not render an address');
+}
+const overdue = results.find(r => r.name === 'countdown-overdue');
+if (overdue.monCountdown.trim() !== 'Ready') bad.push('countdown-overdue: a past target must clamp to "Ready", got: ' + overdue.monCountdown);
+
+// ---- growth chart: no events -> explicit empty state, never a fabricated trend; with
+// events -> counts them but must not claim to show exact principal/reward/unclaimed values
+for (const r of results.filter(r => r.name !== 'growth-events')) {
+  if (!/^0 events/i.test(r.gTotal) || !/no on-chain history/i.test(r.gNote)) bad.push(r.name + ': growth chart with no on-chain events must say so explicitly, not show a fabricated series (gTotal=' + r.gTotal + ')');
+}
+const growth = results.find(r => r.name === 'growth-events');
+if (!/^4 /.test(growth.gTotal)) bad.push('growth-events: expected the mocked 4 events to be counted, got: ' + growth.gTotal);
+if (!/pending confirmation/i.test(growth.gNote)) bad.push('growth-events: must flag that exact values are pending event-ABI confirmation rather than plotting guessed numbers');
+
+// ---- personal dashboard extras: eligibility/lots/share render from the epoch JSON already fetched for the claim flow
+const withLots = results.find(r => r.name === 'claim-ready');
+if (!/yes/i.test(withLots.eligYn || '')) bad.push('claim-ready: eligibility should read Yes for the fully-eligible fixture holder');
+if (withLots.share !== '100.00%') bad.push('claim-ready: share should read 100.00% for the fixture\'s shareBps of 10000, got: ' + withLots.share);
+if (!/lot 1/i.test(withLots.lotList || '')) bad.push('claim-ready: lot list did not render the fixture\'s single TEN lot');
+if (withLots.ovHolders === '—' || withLots.ovEligTotal === '—') bad.push('claim-ready: overview general stats (eligible holders/TEN) should populate from the latest epoch\'s totals');
 
 if (bad.length) { console.log('\nISSUES:'); bad.forEach(x => console.log(' -', x)); process.exitCode = 1; }
 else console.log('\nAll checks passed.');

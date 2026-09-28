@@ -28,6 +28,11 @@
       <h1>Reward <em>Reserve</em></h1>
       <p class="sub">Hold TEN 30+ days · claim your weekly sNET share · Robinhood Chain Testnet<br><code data-l="rAddr">REWARD RESERVE --</code></p>
     </div>
+    <div class="lcds" data-mod="chain">
+      <div class="lcd in"><div class="k">sNET in the Reserve</div><div class="v" data-l="mon_snet">--</div><div class="s">sNET.balanceOf(reserve)</div></div>
+      <div class="lcd in"><div class="k">TEN in the Reserve</div><div class="v" data-l="mon_ten">--</div><div class="s">TEN.balanceOf(reserve)</div></div>
+      <div class="lcd in"><div class="k">Next distribution</div><div class="v" data-l="mon_countdown">--</div><div class="s" data-l="mon_countdownSub">lastCrystallization() + CRYSTALLIZATION_PERIOD()</div></div>
+    </div>
     <div class="walletbar" id="walletbar">
       <div class="netchip" id="netchip"><span data-l="netchipText">checking wallet…</span></div>
       <button class="b go" id="connectBtn" type="button">Connect wallet</button>
@@ -38,7 +43,7 @@
     <a class="brand" href="/">TenTen · 10/10</a>
     <button class="hb b" id="hb" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="mmenu">≡ MENU</button>
     <div class="links-row" id="mmenu">
-      <a class="on" href="#overview">Overview</a><a href="#how">How it works</a><a href="#claim">My rewards</a><a href="#contracts">Contracts</a><a href="/">Main site</a>
+      <a class="on" href="#overview">Overview</a><a href="#how">How it works</a><a href="#growth">Growth</a><a href="#claim">My rewards</a><a href="#donate">Donate</a><a href="#contracts">Contracts</a><a href="/">Main site</a>
     </div>
     <span class="sp"></span>
     <a class="b go" href="https://par.family/token/0xc4f021c73a5b6ffae6c43515f0a4bbf615b31c7b" target="_blank" rel="noopener">Buy TEN</a>
@@ -49,15 +54,25 @@
   <section class="win out" id="overview" data-mod="chain">
     <div class="bar"><span>Overview · live from the chain</span><span class="btns"><button type="button" data-min aria-label="Minimize">_</button><button type="button" aria-label="Maximize">□</button><button type="button" aria-label="Close">×</button></span></div>
     <div class="body">
-      <div class="kv">
-        <div><span>Principal value (sNET)</span><b data-l="ov_principal">--</b></div>
-        <div><span>Holder-side value · not yet assigned</span><b data-l="ov_holderside">--</b></div>
-        <div><span>Allocated / unclaimed</span><b data-l="ov_liab">--</b></div>
-        <div><span>Solvency · isSolvent()</span><b data-l="ov_solvent">--</b></div>
-        <div><span>Latest epoch published</span><b data-l="ov_latestEpoch">--</b></div>
-        <div><span>Read at block</span><b data-l="ov_block">--</b></div>
+      <div class="vault">
+        <div class="lcd in gauge">
+          <div class="k">Principal value</div>
+          <div class="v" data-l="ov_principal">--</div>
+          <div class="s">Read with <code>principalValue()</code>. Half of everything this generates compounds back in automatically.</div>
+        </div>
+        <div class="side">
+          <div class="kv">
+            <div><span>Holder-side value · not yet assigned</span><b data-l="ov_holderside">--</b></div>
+            <div><span>Allocated / unclaimed</span><b data-l="ov_liab">--</b></div>
+            <div><span>Solvency · isSolvent()</span><b data-l="ov_solvent">--</b></div>
+            <div><span>Latest epoch published</span><b data-l="ov_latestEpoch">--</b></div>
+            <div><span>Eligible wallets · latest epoch</span><b data-l="ov_holders">--</b></div>
+            <div><span>Eligible TEN · latest epoch</span><b data-l="ov_eligTotal">--</b></div>
+            <div><span>Read at block</span><b data-l="ov_block">--</b></div>
+          </div>
+          <p class="st"><b data-l="badge">LOADING</b> <span data-l="updated">connecting to Robinhood Chain Testnet…</span></p>
+        </div>
       </div>
-      <p class="st"><b data-l="badge">LOADING</b> <span data-l="updated">connecting to Robinhood Chain Testnet…</span></p>
       <div class="alert" data-l-alert="overview" hidden></div>
     </div>
   </section>
@@ -87,6 +102,17 @@
     </div>
   </section>
 
+  <!-- ================================================================ GROWTH -->
+  <section class="win out" id="growth" data-mod="logs">
+    <div class="bar"><span>Growth · principal, rewards &amp; unclaimed</span><span class="btns"><button type="button" data-min aria-label="Minimize">_</button><button type="button" aria-label="Maximize">□</button><button type="button" aria-label="Close">×</button></span></div>
+    <div class="lcd in growth">
+      <div class="head"><span>SINCE DEPLOY · EVENT LOG</span><span data-l="gTotal">READING…</span></div>
+      <div class="gchart" id="gChart"><svg viewBox="0 0 1000 300" preserveAspectRatio="none" role="img" aria-label="Principal, next-round rewards and unclaimed rewards over time"></svg></div>
+      <div class="stacklg" style="margin-top:10px"><span><i class="c1"></i>sNET principal</span><span><i class="c3"></i>next round rewards</span><span><i class="c5"></i>unclaimed rewards</span></div>
+      <p class="note" data-l="gNote">Reading the event log…</p>
+    </div>
+  </section>
+
   <!-- ================================================================ MY REWARDS / CLAIM -->
   <section class="win out" id="claim">
     <div class="bar"><span>My rewards</span><span class="btns"><button type="button" data-min aria-label="Minimize">_</button><button type="button" aria-label="Maximize">□</button><button type="button" aria-label="Close">×</button></span></div>
@@ -106,6 +132,14 @@
           <div class="lcd in"><div class="k">Claimed</div><div class="v" data-l="m_claimed">--</div><div class="s">sum of claimed epochs</div></div>
         </div>
 
+        <div class="kv" id="eligDetail" style="margin-top:6px">
+          <div><span>Eligible?</span><b data-l="m_eligYn">--</b></div>
+          <div><span>TEN age (oldest lot)</span><b data-l="m_age">--</b></div>
+          <div><span>Days until next lot is eligible</span><b data-l="m_daysToElig">--</b></div>
+          <div><span>Your share of this week's pool</span><b data-l="m_share">--</b></div>
+        </div>
+        <div class="rounds" id="lotList" data-l="lotList" style="margin-top:4px"></div>
+
         <div class="tscroll">
           <table class="lots light">
             <thead><tr><th>Epoch</th><th class="num">Allocation</th><th>Status</th><th></th></tr></thead>
@@ -119,6 +153,15 @@
         </div>
         <div class="alert" data-l-alert="claim" hidden></div>
       </div>
+    </div>
+  </section>
+
+  <!-- ================================================================ DONATE -->
+  <section class="win out" id="donate" data-mod="chain">
+    <div class="bar"><span>Community donations</span><span class="btns"><button type="button" data-min aria-label="Minimize">_</button><button type="button" aria-label="Maximize">□</button><button type="button" aria-label="Close">×</button></span></div>
+    <div class="body">
+      <p class="intro">Support the flywheel — anyone can donate TEN, NET or sNET directly to the Reserve. No approval, no special transaction: just send tokens to the address below.</p>
+      <div id="donateBox"></div>
     </div>
   </section>
 

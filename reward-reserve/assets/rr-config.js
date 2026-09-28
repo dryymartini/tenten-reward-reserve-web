@@ -25,6 +25,12 @@ window.RR_CONFIG = Object.freeze({
 
   requestTimeoutMs: 9000,
 
+  // Approximate deploy block on testnet, as given 2026-09-28 ("intorno al blocco
+  // 125843349") — Matteo flagged this as unconfirmed. Used only as the fromBlock
+  // for the Growth chart's eth_getLogs; being slightly off costs a few extra
+  // blocks scanned, never wrong data, since it only widens or narrows the range.
+  deployBlock: 125843349,
+
   /* --------------------------------------------------------------------------
      Epoch data published by the off-chain Indexer (not part of this site).
      Not hosted anywhere public yet — set `epochsBaseUrl` to the real location

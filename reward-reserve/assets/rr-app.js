@@ -72,6 +72,27 @@
   });
 
   // ------------------------------------------------------------ overview (public, no wallet needed)
+  // countdown to next distribution: fully anchored to chain time (lastCrystallization()+
+  // CRYSTALLIZATION_PERIOD() vs the read block's own timestamp), never Date.now() — the
+  // per-second tick below only counts down a number already computed from chain data.
+  var countdownRemain = null, countdownNotFunded = false, countdownTimer = null;
+  function fmtCountdown(sec) {
+    sec = Math.max(0, Math.floor(sec));
+    if (sec <= 0) return 'Ready';
+    var d = Math.floor(sec / 86400); sec -= d * 86400;
+    var h = Math.floor(sec / 3600); sec -= h * 3600;
+    var m = Math.floor(sec / 60); sec -= m * 60;
+    return d + 'd ' + h + 'h ' + m + 'm ' + sec + 's';
+  }
+  function startCountdownTicker() {
+    if (countdownTimer) return;
+    countdownTimer = setInterval(function () {
+      if (countdownNotFunded || countdownRemain == null) return;
+      if (countdownRemain > 0) countdownRemain--;
+      S('mon_countdown', fmtCountdown(countdownRemain));
+    }, 1000);
+  }
+
   function refreshOverview() {
     return CH.one(['eth_getBlockByNumber', ['latest', false]]).then(function (blk) {
       var head = { number: Number(BigInt(blk.number)), ts: Number(BigInt(blk.timestamp)) };
@@ -79,12 +100,37 @@
       var calls = [
         CH.ethCall(R, CH.SEL.principalValue, tag), CH.ethCall(R, CH.SEL.holderSideValue, tag),
         CH.ethCall(R, CH.SEL.outstandingLiabilityValue, tag), CH.ethCall(R, CH.SEL.isSolvent, tag),
-        CH.ethCall(R, CH.SEL.latestEpochId, tag)
+        CH.ethCall(R, CH.SEL.latestEpochId, tag),
+        CH.ethCall(R, CH.SEL.lastCrystallization, tag), CH.ethCall(R, CH.SEL.crystallizationPeriod, tag),
+        CH.ethCall(A.snet, CH.encBalanceOf(R), tag), CH.ethCall(A.ten, CH.encBalanceOf(R), tag)
       ];
       return CH.rpc(calls).then(function (r) {
         S('ov_principal', sn(CH.u(r[0], 0))); S('ov_holderside', sn(CH.u(r[1], 0))); S('ov_liab', sn(CH.u(r[2], 0)));
-        S('ov_solvent', CH.boolAt(r[3], 0) ? 'SOLVENT' : 'INSOLVENT'); S('ov_latestEpoch', num(CH.u(r[4], 0)));
+        S('ov_solvent', CH.boolAt(r[3], 0) ? 'SOLVENT' : 'INSOLVENT');
+        var latestId = Number(CH.u(r[4], 0));
+        S('ov_latestEpoch', num(latestId));
         S('ov_block', num(head.number));
+        S('mon_snet', sn(CH.u(r[7], 0))); S('mon_ten', tn(CH.u(r[8], 0)));
+
+        var lastCryst = CH.u(r[5], 0), period = CH.u(r[6], 0);
+        if (lastCryst === 0n) {
+          countdownNotFunded = true; countdownRemain = null;
+          S('mon_countdown', 'Not funded yet'); S('mon_countdownSub', 'lastCrystallization() is still 0 — no round has run yet');
+        } else {
+          countdownNotFunded = false;
+          countdownRemain = Number(lastCryst + period) - head.ts;
+          S('mon_countdown', fmtCountdown(countdownRemain));
+          S('mon_countdownSub', 'lastCrystallization() + CRYSTALLIZATION_PERIOD()');
+        }
+        startCountdownTicker();
+
+        if (latestId) {
+          P.getEpoch(latestId).then(function (ep) {
+            if (ep.status === 'ok' && ep.data.totals) { S('ov_holders', num(ep.data.totals.eligibleHolders)); S('ov_eligTotal', tn(ep.data.totals.totalEligibleBalance)); }
+            else { S('ov_holders', '—'); S('ov_eligTotal', '—'); }
+          });
+        } else { S('ov_holders', '—'); S('ov_eligTotal', '—'); }
+
         badge(['badge'], 'LIVE'); S('updated', 'block ' + num(head.number));
         alertBox('overview', '');
       });
@@ -95,6 +141,54 @@
   }
   refreshOverview();
   setInterval(refreshOverview, 60000);
+
+  // ------------------------------------------------------------ growth chart (event log, since deploy)
+  // Event topic0 hashes were supplied as-given (only syntactic 32-byte hex checked, not
+  // independently recomputed — that needs the exact event signature). Decoding each log's
+  // `data` into the actual sNET principal / reward-pot / unclaimed values needs the confirmed
+  // parameter types and indexed/non-indexed layout for Crystallized / EpochPublished /
+  // AllocationClaimed, which is not yet confirmed — so this only counts and dates events
+  // rather than guessing a field layout and risking a fabricated number.
+  function refreshGrowth() {
+    var svg = $('#gChart svg'); if (!svg) return;
+    function showMsg(l1, l2) {
+      svg.innerHTML = '<text class="msg" x="500" y="140" text-anchor="middle">' + esc(l1) + '</text>' +
+        (l2 ? '<text class="msg2" x="500" y="168" text-anchor="middle">' + esc(l2) + '</text>' : '');
+    }
+    showMsg('READING EVENT LOG…');
+    CH.getLogs(R, [[CH.TOPICS.Crystallized, CH.TOPICS.EpochPublished, CH.TOPICS.AllocationClaimed]], C.deployBlock).then(function (logs) {
+      if (!logs.length) {
+        S('gTotal', '0 EVENTS'); S('gNote', 'No on-chain history yet since deploy — this fills in as Crystallized / EpochPublished / AllocationClaimed events happen. Nothing is shown rather than an invented trend.');
+        showMsg('NO EVENTS YET', 'chart fills in once the reserve crystallizes'); return;
+      }
+      var byTopic = { c: 0, e: 0, a: 0 };
+      logs.forEach(function (l) {
+        var t = l.topics && l.topics[0];
+        if (t === CH.TOPICS.Crystallized) byTopic.c++; else if (t === CH.TOPICS.EpochPublished) byTopic.e++; else if (t === CH.TOPICS.AllocationClaimed) byTopic.a++;
+      });
+      S('gTotal', logs.length + ' EVENT' + (logs.length === 1 ? '' : 'S') + ' SINCE DEPLOY');
+      S('gNote', byTopic.c + ' crystallization(s) · ' + byTopic.e + ' epoch(s) published · ' + byTopic.a + ' claim(s). Exact values need the confirmed event parameter layout before they can be plotted without guessing — pending confirmation.');
+      showMsg('EVENT COUNTS ONLY', 'awaiting confirmed event ABI to plot exact values');
+    }).catch(function (e) {
+      S('gTotal', 'UNAVAILABLE'); S('gNote', 'Could not read the event log: ' + esc(e.message || String(e)));
+      showMsg('COULD NOT READ EVENT LOG');
+    });
+  }
+  refreshGrowth();
+
+  // ------------------------------------------------------------ community donations
+  (function () {
+    var box = $('#donateBox'); if (!box) return;
+    var qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=2&data=' + encodeURIComponent(R);
+    box.innerHTML =
+      '<div class="donaterow">' +
+        '<div class="crow"><div class="ch"><b>Reward Reserve address</b></div><div class="ca2"><code>' + R + '</code>' +
+          '<button class="b copy" type="button" data-copy="' + R + '">Copy</button>' +
+          '<a class="b" href="' + EXPL + '/address/' + R + '" target="_blank" rel="noopener">Explorer ↗</a></div></div>' +
+        '<div class="donateqr"><img src="' + qrUrl + '" alt="QR code for the Reward Reserve address" width="132" height="132" loading="lazy"><span>Scan to donate</span></div>' +
+      '</div>' +
+      '<p class="warn" style="margin-top:10px">This is the same address as the contract, not a new one. Sending here needs no approval — it is a plain token transfer, and there is no way to withdraw a donation once sent, so double-check the address first.</p>';
+  })();
 
   // copy buttons (delegated: rendered into the contracts list below)
   document.addEventListener('click', function (ev) {
@@ -143,6 +237,7 @@
     meOut.hidden = false; claimBtn.disabled = true; claimStatus.textContent = ''; alertBox('claim', '');
     epochRows.innerHTML = '<tr><td colspan="4">reading…</td></tr>';
     S('m_bal', '…'); S('m_elig', '…'); S('m_toClaim', '…'); S('m_claimed', '…');
+    S('m_eligYn', '…'); S('m_age', '…'); S('m_daysToElig', '…'); S('m_share', '…'); H('lotList', '');
 
     var latestP = CH.one(CH.ethCall(R, CH.SEL.latestEpochId));
     var balP = CH.one(CH.ethCall(A.ten, CH.encBalanceOf(address)));
@@ -152,6 +247,7 @@
       S('m_bal', tn(bal));
       if (!latest) {
         S('m_elig', '0 TEN'); S('m_toClaim', '0 sNET'); S('m_claimed', '0 sNET');
+        S('m_eligYn', '—'); S('m_age', '—'); S('m_daysToElig', '—'); S('m_share', '—');
         epochRows.innerHTML = '<tr><td colspan="4">no epoch published yet</td></tr>';
         LAST = { address: address, ready: [] };
         return;
@@ -166,12 +262,50 @@
     });
   }
 
+  // Personal dashboard extras: everything here comes from the already-fetched latest
+  // epoch JSON (no new fetch) — lots[]/eligibility.minDays/shareBps are all optional
+  // fields P.getEpoch's validator soft-checks, so a missing one shows "no data", never 0.
+  function renderEligibilityDetail(latestOk, address) {
+    if (!latestOk) { S('m_eligYn', '—'); S('m_age', '—'); S('m_daysToElig', '—'); S('m_share', '—'); H('lotList', ''); return; }
+    var minDays = latestOk.eligibility && Number(latestOk.eligibility.minDays) > 0 ? Number(latestOk.eligibility.minDays) : null;
+    var entry = P.findAddr(latestOk.holders, address);
+    var lots = entry && Array.isArray(entry.lots) ? entry.lots : null;
+
+    if (entry && lots && lots.length) {
+      var allElig = lots.every(function (l) { return l.eligible; }), anyElig = lots.some(function (l) { return l.eligible; });
+      S('m_eligYn', allElig ? 'Yes' : (anyElig ? 'Partial (' + lots.filter(function (l) { return l.eligible; }).length + '/' + lots.length + ' lots)' : 'No'));
+      var oldest = lots.reduce(function (a, b) { return a.days >= b.days ? a : b; });
+      S('m_age', oldest.days + ' day' + (oldest.days === 1 ? '' : 's') + ' (oldest lot)');
+      var youngest = lots.reduce(function (a, b) { return a.days <= b.days ? a : b; });
+      S('m_daysToElig', minDays == null ? '—' : (youngest.days >= minDays ? 'all lots eligible' : (minDays - youngest.days) + ' day' + ((minDays - youngest.days) === 1 ? '' : 's')));
+      H('lotList', '<div class="rk">Your TEN lots</div><ol>' + lots.map(function (l, i) {
+        return '<li><span>Lot ' + (i + 1) + '</span><span>' + tn(l.amount) + '</span><span>' + l.days + 'd held</span><span class="tag ' + (l.eligible ? 'ok">eligible' : 'bad">not yet') + '</span></li>';
+      }).join('') + '</ol>');
+    } else if (entry) {
+      S('m_eligYn', BigInt(entry.eligibleBalance || 0) > 0n ? 'Yes' : 'No');
+      S('m_age', 'no lot data for this epoch'); S('m_daysToElig', '—'); H('lotList', '');
+    } else {
+      var ineligEntry = P.findAddr(latestOk.ineligible, address);
+      if (ineligEntry && ineligEntry.youngestLotDays != null) {
+        var yd = Number(ineligEntry.youngestLotDays);
+        S('m_eligYn', 'No');
+        S('m_age', yd + ' day' + (yd === 1 ? '' : 's') + ' (youngest lot)');
+        S('m_daysToElig', minDays == null ? '—' : Math.max(0, minDays - yd) + ' day' + (Math.max(0, minDays - yd) === 1 ? '' : 's'));
+      } else {
+        S('m_eligYn', 'No'); S('m_age', 'no data'); S('m_daysToElig', '—');
+      }
+      H('lotList', '');
+    }
+    S('m_share', entry && entry.shareBps != null ? (Number(entry.shareBps) / 100).toFixed(2) + '%' : '—');
+  }
+
   function reconcile(address, ids, epochs) {
     var rows = ids.map(function (id, i) { return { id: id, epoch: epochs[i] }; });
     var latestOk = rows[0] && rows[0].epoch.status === 'ok' ? rows[0].epoch.data : null;
     var elig = latestOk ? (P.findAddr(latestOk.holders, address) || {}).eligibleBalance : null;
     S('m_elig', elig != null ? tn(elig) : '0 TEN');
     S('m_eligSub', latestOk ? 'epoch ' + latestOk.epochId : 'no published epoch to read from');
+    renderEligibilityDetail(latestOk, address);
 
     // entries with something to check on chain: only rows whose JSON loaded and lists this address
     var withEntry = rows.map(function (row) {
