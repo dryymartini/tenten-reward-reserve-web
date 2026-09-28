@@ -162,3 +162,7 @@ table.lots.bsheet tr.total td{border-top:2px solid var(--ink);border-bottom:none
 /* narrow screens: the Share column would otherwise sit past the fold, needing
    an undiscoverable horizontal scroll; drop it and keep Holding + Carrying value */
 @media(max-width:480px){table.lots.bsheet th.num:last-child,table.lots.bsheet td.num:last-child{display:none}}
+
+/* visible checkpoint markers, so a flat (e.g. brand-new) line still reads as data, not empty grid */
+.gchart .pdot{fill:var(--ph);filter:drop-shadow(0 0 3px var(--ph-glow))}
+.gchart .rdot{fill:var(--lcd);stroke:var(--panel);stroke-width:2}

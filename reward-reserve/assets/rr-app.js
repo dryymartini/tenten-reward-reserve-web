@@ -370,13 +370,19 @@
     var W = 1000, Hh = 300, L = 62, Rr = 10, T = 14, B = 30;
     var t0 = pts[0].t, t1 = pts[pts.length - 1].t; if (t1 === t0) t1 = t0 + 3600;
     var maxV = 1n; pts.forEach(function (pt) { if (pt.p > maxV) maxV = pt.p; if (pt.r > maxV) maxV = pt.r; });
+    // headroom above the highest value so a flat line never sits exactly on the top gridline
+    // (indistinguishable from the grid itself, which is what made an unchanged principal read as "no line")
+    var topV = maxV + maxV / 4n + 1n;
     var X = function (t) { return L + (t - t0) / (t1 - t0) * (W - L - Rr); };
-    var Y = function (v) { return T + (1 - Number(v * 10000n / maxV) / 10000) * (Hh - T - B); };
+    var Y = function (v) { return T + (1 - Number(v * 10000n / topV) / 10000) * (Hh - T - B); };
     var o = '';
-    for (var i = 0; i <= 4; i++) { var v = maxV * BigInt(Math.round(i / 4 * 10000)) / 10000n; o += '<line class="grid" x1="' + L + '" x2="' + (W - Rr) + '" y1="' + Y(v) + '" y2="' + Y(v) + '"/><text class="ax" x="' + (L - 6) + '" y="' + (Y(v) + 5) + '" text-anchor="end">' + sn(v).replace(' sNET', '') + '</text>'; }
+    for (var i = 0; i <= 4; i++) { var v = topV * BigInt(Math.round(i / 4 * 10000)) / 10000n; o += '<line class="grid" x1="' + L + '" x2="' + (W - Rr) + '" y1="' + Y(v) + '" y2="' + Y(v) + '"/><text class="ax" x="' + (L - 6) + '" y="' + (Y(v) + 5) + '" text-anchor="end">' + sn(v).replace(' sNET', '') + '</text>'; }
     for (var j = 0; j <= 4; j++) { var t = t0 + (t1 - t0) * j / 4, d = new Date(t * 1000); o += '<text class="ax" x="' + X(t) + '" y="' + (Hh - 8) + '" text-anchor="' + (j === 0 ? 'start' : j === 4 ? 'end' : 'middle') + '">' + d.getUTCDate() + ' ' + ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getUTCMonth()] + '</text>'; }
     function line(cls, key) { return '<path class="' + cls + '" d="' + pts.map(function (pt, k) { return (k ? 'L' : 'M') + X(pt.t).toFixed(1) + ' ' + Y(pt[key]).toFixed(1); }).join(' ') + '"/>'; }
-    o += line('pline', 'p') + line('rline', 'r');
+    // explicit dots at each real checkpoint: a flat 2-point line is easy to mistake for an empty
+    // chart otherwise, especially when it lands near a gridline
+    function dots(cls, key) { return pts.map(function (pt) { return '<circle class="' + cls + '" cx="' + X(pt.t).toFixed(1) + '" cy="' + Y(pt[key]).toFixed(1) + '" r="4.5"/>'; }).join(''); }
+    o += line('pline', 'p') + line('rline', 'r') + dots('pdot', 'p') + dots('rdot', 'r');
     svg.innerHTML = o;
     var last = pts[pts.length - 1];
     S('pgTotal', 'principal ' + sn(last.p) + ' · pot ' + sn(last.r) + (ST.head ? ' · block ' + num(ST.head.number) : ''));
