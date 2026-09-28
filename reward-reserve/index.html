@@ -79,6 +79,17 @@
     </div>
   </section>
 
+  <!-- ================================================================ 8.1b GROWTH CHART -->
+  <section class="win out" id="growth-chart" data-mod="logs">
+    <div class="bar"><span>Growth · principal &amp; reward pot</span><span class="btns"><button type="button" data-min aria-label="Minimize">_</button><button type="button" aria-label="Maximize">□</button><button type="button" aria-label="Close">×</button></span></div>
+    <div class="lcd in growth">
+      <div class="head"><span>PERMANENT PRINCIPAL &amp; REWARD POT · SINCE LAUNCH</span><span data-l="pgTotal">READING…</span></div>
+      <div class="gchart" id="pgChart"><svg viewBox="0 0 1000 300" role="img" aria-label="Growth of Permanent Principal and Reward Pot since launch"></svg></div>
+      <div class="stacklg" style="margin-top:10px"><span><i class="c1"></i>permanent principal</span><span><i class="c3"></i>reward pot</span></div>
+      <p class="note" data-l="pgNote">Waiting for the event log…</p>
+    </div>
+  </section>
+
   <!-- ================================================================ 8.2 HOW IT WORKS -->
   <section class="win out" id="how">
     <div class="bar"><span>How it works</span><span class="btns"><button type="button" data-min aria-label="Minimize">_</button><button type="button" aria-label="Maximize">□</button><button type="button" aria-label="Close">×</button></span></div>
@@ -128,33 +139,23 @@
   <!-- ================================================================ 8.3 sNET ENGINE -->
   <section class="win out" id="engine" data-mod="chain">
     <div class="bar"><span>sNET engine · where the value sits</span><span class="btns"><button type="button" data-min aria-label="Minimize">_</button><button type="button" aria-label="Maximize">□</button><button type="button" aria-label="Close">×</button></span></div>
-    <div class="lcd in report">
-      <div class="head"><span>RESERVE.ACCOUNTING · sNET</span><span data-l="engineStatus">READING…</span></div>
-      <div class="panels" style="margin-top:10px">
-        <div class="panel"><div class="k">Permanent principal</div><div class="v" data-l="e_ppv">--</div><div class="s">principalValueAtCheckpoint</div></div>
-        <div class="panel"><div class="k">Uncrystallized sNET yield</div><div class="v" data-l="e_yield">--</div><div class="s">principalValue() − checkpoint</div></div>
-        <div class="panel"><div class="k">Reward pot</div><div class="v" data-l="e_pot">--</div><div class="s">rewardPotValue()</div></div>
-        <div class="panel"><div class="k">Allocated / unclaimed rewards</div><div class="v" data-l="e_liab">--</div><div class="s">outstandingLiabilityValue()</div></div>
-        <div class="panel"><div class="k">Pending NET</div><div class="v" data-l="e_pending">--</div><div class="s">NET.balanceOf(reserve) · not principal until processed</div></div>
-        <div class="panel ref"><div class="k">Total sNET held · reference</div><div class="v" data-l="e_held">--</div><div class="s">sNET.balanceOf(reserve)</div></div>
-      </div>
-      <div class="stack" aria-label="Composition of the sNET held by the reserve">
-        <div class="stackbar" id="stackbar"></div>
-        <div class="stacklg">
-          <span><i class="c1"></i>principal</span><span><i class="c2"></i>uncrystallized yield</span><span><i class="c3"></i>reward pot</span><span><i class="c4"></i>allocated</span><span><i class="c5"></i>physical surplus</span>
-        </div>
-      </div>
-      <div class="rows">
-        <div><span>sNET held</span><span class="d"></span><span data-l="r_held">--</span></div>
-        <div><span>− principalValue()</span><span class="d"></span><span data-l="r_pv">--</span></div>
-        <div><span>− rewardPotValue()</span><span class="d"></span><span data-l="r_pot">--</span></div>
-        <div><span>− outstandingLiabilityValue()</span><span class="d"></span><span data-l="r_liab">--</span></div>
-        <div><span>= physical surplus (not assigned)</span><span class="d"></span><span data-l="r_surplus">--</span></div>
-      </div>
-      <div class="bottom"><span data-l="solvencyLine">Solvency rule: sNET held ≥ principal + pot + allocated</span><span class="done" data-l="badge2">LOADING</span></div>
-    </div>
     <div class="body">
-      <p class="intro">Every bucket is read directly from the contract. The page never splits the sNET balance itself. Dashboard identity: <em>principal</em> + <em>uncrystallized yield</em> = principalValue(). When NET is processed, the contract credits the sNET it actually received to principal and moves the checkpoint in the same call, so new principal is never counted as yield.</p>
+      <div class="tscroll">
+        <table class="lots light bsheet">
+          <thead><tr><th>Holding</th><th class="num">Carrying value</th><th class="num">Share</th></tr></thead>
+          <tbody>
+            <tr><td>Permanent principal<small>principalValueAtCheckpoint</small></td><td class="num" data-l="e_ppv">--</td><td class="num" data-l="e_ppv_pct">--</td></tr>
+            <tr><td>Uncrystallized sNET yield<small>principalValue() − checkpoint</small></td><td class="num" data-l="e_yield">--</td><td class="num" data-l="e_yield_pct">--</td></tr>
+            <tr><td>Reward pot<small>rewardPotValue()</small></td><td class="num" data-l="e_pot">--</td><td class="num" data-l="e_pot_pct">--</td></tr>
+            <tr><td>Allocated / unclaimed rewards<small>outstandingLiabilityValue()</small></td><td class="num" data-l="e_liab">--</td><td class="num" data-l="e_liab_pct">--</td></tr>
+            <tr class="sub"><td>Physical surplus (not assigned)<small>held − principal − pot − allocated</small></td><td class="num" data-l="r_surplus">--</td><td class="num" data-l="e_surplus_pct">--</td></tr>
+            <tr class="total"><td>Total sNET held<small>sNET.balanceOf(reserve)</small></td><td class="num" data-l="e_held">--</td><td class="num">100.0%</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="st" style="margin-top:8px">Pending NET (not yet staked, not part of sNET held) <b data-l="e_pending">--</b></p>
+      <p class="st"><b data-l="badge2">LOADING</b> <span data-l="engineStatus">READING…</span> · <span data-l="solvencyLine">sNET held ≥ principal + pot + allocated</span></p>
+      <p class="intro">Every row is read directly from the contract. The page never splits the sNET balance itself. Dashboard identity: <em>principal</em> + <em>uncrystallized yield</em> = principalValue(). When NET is processed, the contract credits the sNET it actually received to principal and moves the checkpoint in the same call, so new principal is never counted as yield.</p>
       <p class="warn">Supported funding path: NET → processNet() → staking → sNET → principal. Do not send sNET to the reserve address: a plain sNET transfer is not a supported principal funding path and would only appear as unassigned surplus. The surplus line above is never counted as principal, yield, pot or allocations.</p>
       <div class="alert" data-l-alert="engine" hidden></div>
     </div>

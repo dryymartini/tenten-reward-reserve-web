@@ -31,6 +31,7 @@
   function tn(v) { return CH.amt(v, DEC.ten, 'TEN'); }
   function tnShort(v) { var n = Number(BigInt(v) / 10n ** 14n) / 1e4; if (n >= 1e9) return (n / 1e9).toFixed(2) + 'B TEN'; if (n >= 1e6) return (n / 1e6).toFixed(2) + 'M TEN'; if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K TEN'; return tn(v); }
   function pctWad(w) { var bp = BigInt(w) * 10000n / 10n ** 16n; return CH.units(bp, 2, 2) + '%'; } // WAD 1e18 = 100%
+  function pctOf(v, total) { var bp = (v < 0n ? -v : v) * 1000000n / total; return (v < 0n ? '−' : '') + CH.units(bp, 4, 2) + '%'; }
   function lc(a) { return String(a).toLowerCase(); }
   function link(path, label) { return '<a href="' + EXPL + path + '" target="_blank" rel="noopener">' + esc(label) + '</a>'; }
 
@@ -171,13 +172,16 @@
     S('block', num(ST.head.number) + ' · ' + utc(ST.head.ts));
     alertBox('acct', acctBad ? '<b>ACCOUNTING WARNING</b><br>' + warns.map(esc).join('<br>') : '');
 
-    // engine
+    // engine (balance sheet: each row's share of total sNET held)
     S('e_ppv', yieldV < 0n ? '--' : sn(r.ppv)); S('e_yield', yieldV < 0n ? '--' : sn(yieldV)); S('e_pot', sn(r.pot)); S('e_liab', sn(r.liab));
     S('e_pending', nt(r.pendingNet)); S('e_held', sn(r.held));
     S('r_held', sn(r.held)); S('r_pv', sn(r.pv)); S('r_pot', sn(r.pot)); S('r_liab', sn(r.liab)); S('r_surplus', surplus >= 0n ? sn(surplus) : '−' + sn(-surplus));
+    function shareOf(v) { return r.held > 0n ? pctOf(v, r.held) : '--'; }
+    S('e_ppv_pct', yieldV < 0n ? '--' : shareOf(r.ppv)); S('e_yield_pct', yieldV < 0n ? '--' : shareOf(yieldV));
+    S('e_pot_pct', shareOf(r.pot)); S('e_liab_pct', shareOf(r.liab));
+    S('e_surplus_pct', r.held > 0n ? (surplus >= 0n ? shareOf(surplus) : '−' + pctOf(-surplus, r.held)) : '--');
     S('solvencyLine', r.solvent ? 'isSolvent() = true · held ≥ principal + pot + allocated' : 'isSolvent() = FALSE');
     S('engineStatus', 'BLOCK ' + num(ST.head.number));
-    drawStack(r, yieldV, surplus);
     alertBox('engine', acctBad ? '<b>ACCOUNTING WARNING</b><br>' + warns.map(esc).join('<br>') : '');
 
     // rate
@@ -210,23 +214,13 @@
     S('engineStatus', had ? 'LAST GOOD BLOCK ' + num(ST.head.number) : 'NO DATA');
     if (!had) {
       ['modeBig', 'rateBig', 'potBig', 'modeFull', 'tenLocked', 'ppv', 'yield', 'pot', 'liab', 'pendingNet', 'snetHeld', 'solvent', 'latestEpoch', 'paused', 'block',
-        'e_ppv', 'e_yield', 'e_pot', 'e_liab', 'e_pending', 'e_held', 'r_held', 'r_pv', 'r_pot', 'r_liab', 'r_surplus', 'rateFull', 'rateMode', 'lastChange', 'nextChange', 'expDays', 'spot', 'operator', 'wiring'].forEach(function (k) { S(k, 'unavailable'); });
+        'e_ppv', 'e_yield', 'e_pot', 'e_liab', 'e_pending', 'e_held', 'e_ppv_pct', 'e_yield_pct', 'e_pot_pct', 'e_liab_pct', 'e_surplus_pct',
+        'r_held', 'r_pv', 'r_pot', 'r_liab', 'r_surplus', 'rateFull', 'rateMode', 'lastChange', 'nextChange', 'expDays', 'spot', 'operator', 'wiring'].forEach(function (k) { S(k, 'unavailable'); });
       S('modeWhy', 'Robinhood Chain RPC unreachable: no value is shown instead of a guessed one');
       S('rateNote', 'unavailable'); S('rateLbl', 'rate unavailable');
-      $('#stackbar').innerHTML = '<span class="empty">NO DATA</span>';
     }
     modState('chain', false);
     console.warn('[reward-reserve] chain read failed:', e && e.message);
-  }
-
-  function drawStack(r, yieldV, surplus) {
-    var el = $('#stackbar');
-    if (r.held === 0n) { el.innerHTML = '<span class="empty">NO sNET HELD YET</span>'; return; }
-    var parts = [['c1', r.ppv, 'principal'], ['c2', yieldV < 0n ? 0n : yieldV, 'uncrystallized yield'], ['c3', r.pot, 'reward pot'], ['c4', r.liab, 'allocated'], ['c5', surplus > 0n ? surplus : 0n, 'physical surplus']];
-    el.innerHTML = parts.map(function (p) {
-      var w = Number(p[1] * 1000000n / r.held) / 10000; if (!(w > 0)) return '';
-      return '<i class="' + p[0] + '" style="width:' + w + '%;' + (w < .6 ? 'min-width:2px' : '') + '" title="' + esc(p[2] + ': ' + sn(p[1]) + ' (' + w.toFixed(2) + '%)') + '"></i>';
-    }).join('');
   }
 
   // ------------------------------------------------------------ event log: activity, since launch, transitions
@@ -337,6 +331,51 @@
     var since = Math.floor(Date.now() / 1000) - 7 * 86400, oTen = 0n, oNet = 0n, oN = 0, unknownTs = false;
     evs.forEach(function (e) { if (e.name !== 'OrganicInflowReported') return; if (!e.ts) { unknownTs = true; return; } if (e.ts >= since) { oTen += e.ten; oNet += e.net; oN++; } });
     S('org7d', oN === 0 ? (unknownTs ? 'unavailable' : 'none observed') : tn(oTen) + ' + ' + nt(oNet));
+
+    drawPG(evs);
+  }
+
+  // ------------------------------------------------------------ principal / reward pot growth chart
+  // Every point but the last comes straight from an on-chain event: PrincipalFunded/NetProcessed
+  // report their own new checkpoint value, so those points are exact. A ModeChanged crystallization
+  // does not emit separate principal/pot legs, so its growth is split 50/50 per the frozen rule
+  // (spec §4) — never a frontend-invented ratio. The last point is read live from the contract.
+  function computePGSeries(evs) {
+    var chrono = evs.slice().sort(function (a, b) { return a.block - b.block || a.idx - b.idx; });
+    var principal = 0n, pot = 0n, pts = [], dropped = 0;
+    function push(e) { if (e.ts) pts.push({ t: e.ts, p: principal, r: pot }); else dropped++; }
+    chrono.forEach(function (e) {
+      if (e.name === 'PrincipalFunded' || e.name === 'NetProcessed') { principal = e.newPv; push(e); }
+      else if (e.name === 'ModeChanged' && e.growth > 0n) { var toPot = e.growth / 2n; principal += e.growth - toPot; pot += toPot; push(e); }
+      else if (e.name === 'EpochPublished') { pot -= e.committedTotal; push(e); }
+      else if (e.name === 'EpochCancelled') { pot += e.returned; push(e); }
+    });
+    if (ST.r && ST.head) pts.push({ t: ST.head.ts, p: ST.r.ppv, r: ST.r.pot });
+    return { pts: pts, dropped: dropped };
+  }
+
+  function drawPG(evs) {
+    var svg = $('#pgChart svg'); if (!svg) return;
+    var series = computePGSeries(evs), pts = series.pts;
+    if (pts.length < 2) {
+      svg.innerHTML = '<line class="grid" x1="40" x2="990" y1="150" y2="150"/><text class="msg" x="500" y="138" text-anchor="middle">NOT ENOUGH HISTORY YET</text><text class="msg2" x="500" y="176" text-anchor="middle">plots once principal or the reward pot changes on chain</text>';
+      S('pgTotal', 'no change yet'); S('pgNote', 'This line only plots real on-chain checkpoints. Nothing is estimated between them.');
+      return;
+    }
+    var W = 1000, Hh = 300, L = 62, Rr = 10, T = 14, B = 30;
+    var t0 = pts[0].t, t1 = pts[pts.length - 1].t; if (t1 === t0) t1 = t0 + 3600;
+    var maxV = 1n; pts.forEach(function (pt) { if (pt.p > maxV) maxV = pt.p; if (pt.r > maxV) maxV = pt.r; });
+    var X = function (t) { return L + (t - t0) / (t1 - t0) * (W - L - Rr); };
+    var Y = function (v) { return T + (1 - Number(v * 10000n / maxV) / 10000) * (Hh - T - B); };
+    var o = '';
+    for (var i = 0; i <= 4; i++) { var v = maxV * BigInt(Math.round(i / 4 * 10000)) / 10000n; o += '<line class="grid" x1="' + L + '" x2="' + (W - Rr) + '" y1="' + Y(v) + '" y2="' + Y(v) + '"/><text class="ax" x="' + (L - 6) + '" y="' + (Y(v) + 5) + '" text-anchor="end">' + sn(v).replace(' sNET', '') + '</text>'; }
+    for (var j = 0; j <= 4; j++) { var t = t0 + (t1 - t0) * j / 4, d = new Date(t * 1000); o += '<text class="ax" x="' + X(t) + '" y="' + (Hh - 8) + '" text-anchor="' + (j === 0 ? 'start' : j === 4 ? 'end' : 'middle') + '">' + d.getUTCDate() + ' ' + ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getUTCMonth()] + '</text>'; }
+    function line(cls, key) { return '<path class="' + cls + '" d="' + pts.map(function (pt, k) { return (k ? 'L' : 'M') + X(pt.t).toFixed(1) + ' ' + Y(pt[key]).toFixed(1); }).join(' ') + '"/>'; }
+    o += line('pline', 'p') + line('rline', 'r');
+    svg.innerHTML = o;
+    var last = pts[pts.length - 1];
+    S('pgTotal', 'principal ' + sn(last.p) + ' · pot ' + sn(last.r) + (ST.head ? ' · block ' + num(ST.head.number) : ''));
+    S('pgNote', 'Principal points come from each PrincipalFunded/NetProcessed event’s own new checkpoint value, plus the frozen 50/50 crystallization split applied to each ModeChanged event’s reported growth. The reward pot also subtracts epochs published and adds back cancellations. The last point is read live from the contract.' + (series.dropped ? ' ' + series.dropped + ' older event(s) have no timestamp yet and are not plotted.' : ''));
   }
 
   // ------------------------------------------------------------ organic rate history chart (indexer)

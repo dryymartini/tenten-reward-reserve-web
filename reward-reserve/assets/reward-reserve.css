@@ -145,3 +145,20 @@ table.lots.light td{border-bottom-color:var(--lo);color:var(--ink)}
 }
 .report .rows span:first-child{overflow:hidden;text-overflow:ellipsis;min-width:0}
 .report .rows span:last-child{overflow:visible;text-overflow:clip;flex-shrink:0}
+
+/* sNET engine as a balance sheet: reuses the beige .lots.light table instead
+   of the dark CRT screen the numbers used to sit in (design feedback 2026-09-28) */
+table.lots.bsheet td:first-child{display:flex;flex-direction:column;gap:1px;white-space:normal}
+table.lots.bsheet td small{font-family:var(--ui);font-size:11px;letter-spacing:.08em;color:var(--ink-2);text-transform:none}
+table.lots.bsheet td.num,table.lots.bsheet th.num{font-family:var(--serif);font-variant-numeric:tabular-nums}
+table.lots.bsheet tr.sub td{color:var(--ink-2);font-style:italic}
+table.lots.bsheet tr.sub td.num{font-style:normal}
+table.lots.bsheet tr.total td{border-top:2px solid var(--ink);border-bottom:none;font-weight:700;padding-top:6px}
+
+/* growth chart: permanent principal (solid) vs reward pot (dashed) */
+.gchart .pline{fill:none;stroke:var(--ph);stroke-width:3;stroke-linejoin:round;filter:drop-shadow(0 0 4px var(--ph-glow))}
+.gchart .rline{fill:none;stroke:var(--panel);stroke-width:3;stroke-dasharray:7 5;stroke-linejoin:round}
+
+/* narrow screens: the Share column would otherwise sit past the fold, needing
+   an undiscoverable horizontal scroll; drop it and keep Holding + Carrying value */
+@media(max-width:480px){table.lots.bsheet th.num:last-child,table.lots.bsheet td.num:last-child{display:none}}
