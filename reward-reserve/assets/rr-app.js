@@ -49,7 +49,7 @@
   function renderWallet(snap) {
     if (!W.hasWallet()) {
       S('netchipText', 'no wallet found'); netchip.classList.add('bad');
-      connectBtn.textContent = 'Install a wallet'; connectBtn.disabled = true;
+      connectBtn.textContent = 'Connect wallet'; connectBtn.disabled = false;
       return;
     }
     netchip.classList.remove('bad');

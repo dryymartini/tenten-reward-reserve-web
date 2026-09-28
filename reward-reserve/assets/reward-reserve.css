@@ -26,6 +26,10 @@
 .flow{list-style:none;display:grid;gap:22px;margin:14px 0 4px;counter-reset:f}
 @media(min-width:620px){.flow{grid-template-columns:repeat(2,1fr);column-gap:30px}}
 @media(min-width:960px){.flow{grid-template-columns:repeat(4,1fr)}}
+@media(min-width:1180px){
+  .flow{grid-template-columns:repeat(5,1fr)}
+  .flow li:not(.last)::after{content:"►";left:auto;right:-22px;bottom:auto;top:50%;transform:translateY(-50%)}
+}
 .flow li{position:relative;background:var(--lcd);color:var(--ph);font-family:var(--lcdf);padding:8px 10px 9px;border:2px solid;border-color:var(--lo) var(--hi) var(--hi) var(--lo);counter-increment:f;min-width:0}
 .flow li::before{content:counter(f,decimal-leading-zero);position:absolute;top:6px;right:8px;font-size:14px;color:var(--ph-dim)}
 .flow li b{display:block;font-weight:400;font-size:19px;letter-spacing:.06em;text-transform:uppercase;text-shadow:0 0 6px var(--ph-glow);padding-right:22px}
@@ -74,6 +78,7 @@
 /* ---- holder lookup ----------------------------------------------------- */
 .meout{margin-top:12px;display:grid;gap:10px}
 .trk-lcds{padding:0;background:none}
+@media(min-width:760px){.trk-lcds{grid-template-columns:repeat(4,1fr)}}
 .tscroll{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%}
 table.lots{width:100%;border-collapse:collapse;font-family:var(--lcdf);font-size:18px;white-space:nowrap}
 table.lots th{font-weight:400;font-size:14px;letter-spacing:.14em;text-transform:uppercase;color:var(--ph-dim);text-shadow:none;text-align:left;padding:4px 10px 4px 0;border-bottom:2px dotted rgba(107,245,154,.45)}
