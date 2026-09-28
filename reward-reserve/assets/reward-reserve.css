@@ -168,6 +168,7 @@ table.lots.bsheet tr.total td{border-top:2px solid var(--ink);border-bottom:none
 .gchart .rdot{fill:var(--lcd);stroke:var(--panel);stroke-width:2}
 
 /* growth chart: hover crosshair + tooltip, like the site's other growth chart */
+.gchart .pghit{cursor:crosshair;pointer-events:all}
 .gchart .xline{stroke:var(--ph-dim);stroke-width:1;stroke-dasharray:3 3}
 .gchart .hp{fill:var(--lcd);stroke:var(--ph);stroke-width:2}
 .gchart .hr{fill:var(--lcd);stroke:var(--panel);stroke-width:2}

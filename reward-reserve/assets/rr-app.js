@@ -373,9 +373,17 @@
     // headroom above the highest value so a flat line never sits exactly on the top gridline
     // (indistinguishable from the grid itself, which is what made an unchanged principal read as "no line")
     var topV = maxV + maxV / 4n + 1n;
+    // a virtual floor below 0 so the lowest point (the deploy anchor, usually 0) renders 1/4 up the
+    // chart rather than flat on the bottom axis — makes the line read as "rising" even early on.
+    // Gridline labels still show the real [0, topV] range; only the vertical mapping is shifted.
+    var floorV = -(topV / 3n);
+    var domain = topV - floorV;
     var X = function (t) { return L + (t - t0) / (t1 - t0) * (W - L - Rr); };
-    var Y = function (v) { return T + (1 - Number(v * 10000n / topV) / 10000) * (Hh - T - B); };
-    var o = '';
+    var Y = function (v) { return T + (1 - Number((v - floorV) * 10000n / domain) / 10000) * (Hh - T - B); };
+    // invisible hit-area covering the whole plot: transparent regions of an <svg> don't reliably
+    // receive pointer events in every browser, so hover binds to this instead of relying on the
+    // svg root itself catching mousemove over blank space
+    var o = '<rect class="pghit" x="0" y="0" width="' + W + '" height="' + Hh + '" fill="transparent"/>';
     for (var i = 0; i <= 4; i++) { var v = topV * BigInt(Math.round(i / 4 * 10000)) / 10000n; o += '<line class="grid" x1="' + L + '" x2="' + (W - Rr) + '" y1="' + Y(v) + '" y2="' + Y(v) + '"/><text class="ax" x="' + (L - 6) + '" y="' + (Y(v) + 5) + '" text-anchor="end">' + sn(v).replace(' sNET', '') + '</text>'; }
     for (var j = 0; j <= 4; j++) { var t = t0 + (t1 - t0) * j / 4, d = new Date(t * 1000); o += '<text class="ax" x="' + X(t) + '" y="' + (Hh - 8) + '" text-anchor="' + (j === 0 ? 'start' : j === 4 ? 'end' : 'middle') + '">' + d.getUTCDate() + ' ' + ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getUTCMonth()] + '</text>'; }
     function line(cls, key) { return '<path class="' + cls + '" d="' + pts.map(function (pt, k) { return (k ? 'L' : 'M') + X(pt.t).toFixed(1) + ' ' + Y(pt[key]).toFixed(1); }).join(' ') + '"/>'; }
@@ -387,28 +395,30 @@
     var last = pts[pts.length - 1];
     S('pgTotal', 'principal ' + sn(last.p) + ' · pot ' + sn(last.r) + (ST.head ? ' · block ' + num(ST.head.number) : ''));
     S('pgNote', 'Principal points come from each PrincipalFunded/NetProcessed event’s own new checkpoint value, plus the frozen 50/50 crystallization split applied to each ModeChanged event’s reported growth. The reward pot also subtracts epochs published and adds back cancellations. The last point is read live from the contract.' + (series.dropped ? ' ' + series.dropped + ' older event(s) have no timestamp yet and are not plotted.' : ''));
-    PG = { pts: pts, t0: t0, t1: t1, L: L, Rr: Rr, W: W, Hh: Hh, T: T, B: B, topV: topV };
+    PG = { pts: pts, t0: t0, t1: t1, L: L, Rr: Rr, W: W, Hh: Hh, T: T, B: B, topV: topV, floorV: floorV, domain: domain };
     bindPGHover();
   }
 
   // ------------------------------------------------------------ growth chart hover (crosshair + tooltip)
-  var PG = null, pgBound = false;
+  var PG = null;
   function pgX(t) { return PG.L + (t - PG.t0) / (PG.t1 - PG.t0) * (PG.W - PG.L - PG.Rr); }
-  function pgY(v) { return PG.T + (1 - Number(v * 10000n / PG.topV) / 10000) * (PG.Hh - PG.T - PG.B); }
+  function pgY(v) { return PG.T + (1 - Number((v - PG.floorV) * 10000n / PG.domain) / 10000) * (PG.Hh - PG.T - PG.B); }
   function bindPGHover() {
-    var wrap = $('#pgChart'); if (!wrap || pgBound) return;
-    pgBound = true;
-    wrap.addEventListener('mousemove', pgMove);
-    wrap.addEventListener('mouseleave', function () { pgShowTip(null); });
-    wrap.addEventListener('touchstart', pgTouch, { passive: true });
-    wrap.addEventListener('touchmove', pgTouch, { passive: true });
-    wrap.addEventListener('touchend', function () { pgShowTip(null); });
+    // the hit-rect is a fresh DOM node on every drawPG() redraw (svg.innerHTML is replaced), so this
+    // rebinds every time rather than once — a stale "already bound" guard would leave later redraws
+    // (e.g. periodic refresh) with a dead hit-rect and no listeners at all
+    var svg = $('#pgChart svg'), hit = svg && svg.querySelector('.pghit'); if (!hit) return;
+    hit.addEventListener('mousemove', pgMove);
+    hit.addEventListener('mouseleave', function () { pgShowTip(null); });
+    hit.addEventListener('touchstart', pgTouch, { passive: true });
+    hit.addEventListener('touchmove', pgTouch, { passive: true });
+    hit.addEventListener('touchend', function () { pgShowTip(null); });
   }
   function pgTouch(ev) { var t = ev.touches[0]; if (t) pgMove({ clientX: t.clientX }); }
   function pgMove(ev) {
     if (!PG || !PG.pts.length) return;
-    var wrap = $('#pgChart'); if (!wrap) return;
-    var rect = wrap.getBoundingClientRect();
+    var svg = $('#pgChart svg'); if (!svg) return;
+    var rect = svg.getBoundingClientRect();
     var px = (ev.clientX - rect.left) / rect.width * PG.W;
     var t = PG.t0 + (px - PG.L) / (PG.W - PG.L - PG.Rr) * (PG.t1 - PG.t0);
     var nearest = PG.pts[0], best = Infinity;
