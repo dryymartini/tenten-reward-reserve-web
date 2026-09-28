@@ -1,0 +1,12 @@
+{
+  "name": "tenten-reward-reserve-web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node reward-reserve/tests/run-tests.mjs",
+    "serve": "npx http-server reward-reserve -p 8080 -c-1"
+  },
+  "devDependencies": {
+    "playwright": "^1.56.0"
+  }
+}

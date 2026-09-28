@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TEN Reward Reserve · TenTen Capital</title>
+<meta name="description" content="The TEN Reward Reserve: TEN locked forever, NET staked into sNET as permanent principal, and the principal's growth shared with TEN holders when organic PAR rewards run low. Read-only. Live numbers from Robinhood Chain.">
+<meta name="theme-color" content="#1E4A2F">
+<link rel="canonical" href="https://tentencapital.net/reward-reserve/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="TenTen Capital">
+<meta property="og:title" content="TEN Reward Reserve · the growth goes to holders">
+<meta property="og:description" content="TEN locked forever. NET becomes sNET principal. When organic rewards run low, the principal's growth is shared with TEN holders. Read-only, verified on chain.">
+<meta property="og:url" content="https://tentencapital.net/reward-reserve/">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%231E4A2F'/%3E%3Ctext x='32' y='47' text-anchor='middle' font-family='Times New Roman,serif' font-weight='700' font-size='44' fill='%23F1ECD6'%3ET%3C/text%3E%3Cellipse cx='32' cy='32' rx='28' ry='11' fill='none' stroke='%23F1ECD6' stroke-width='2.5' transform='rotate(-30 32 32)'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="assets/tenten-base.css">
+<link rel="stylesheet" href="assets/reward-reserve.css">
+</head>
+<body>
+<div class="wrap">
+
+  <div class="strip out" style="margin-top:14px"><i></i><a href="/">TenTen Capital · Reward Reserve · back to the terminal</a></div>
+
+  <header class="win out" id="top">
+    <div class="mast">
+      <img class="logo" src="assets/tenten-logo.webp" alt="TenTen Capital logo: a serif T with an orbit ring on green" width="64" height="64">
+      <h1>Reward <em>Reserve</em></h1>
+      <p class="sub">TEN held forever · NET becomes sNET · holders share the growth · Robinhood Chain<br><code>REWARD RESERVE 0x313dfCB9E091D33482e75EEFa00E0156b42119b5</code></p>
+    </div>
+    <div class="lcds" data-mod="chain">
+      <div class="lcd in"><div class="k">Current mode</div><div class="v" data-l="modeBig">--</div><div class="s" data-l="modeSub">status only · set by the contract</div></div>
+      <div class="lcd in"><div class="k">Organic rate · 7D</div><div class="v" data-l="rateBig">--</div><div class="s">threshold 10% · realized, not a promise</div></div>
+      <div class="lcd in"><div class="k">Reward pot</div><div class="v" data-l="potBig">--</div><div class="s">up to 10% per epoch in Reward Mode</div></div>
+    </div>
+  </header>
+
+  <nav class="menu out sticky" id="nav" aria-label="Main">
+    <a class="brand" href="/">TenTen · 10/10</a>
+    <button class="hb b" id="hb" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="mmenu">≡ MENU</button>
+    <div class="links-row" id="mmenu">
+      <a class="on" href="#overview">Overview</a><a href="#how">How it works</a><a href="#engine">sNET engine</a><a href="#rate">Rate</a><a href="#me">My TEN</a><a href="#claim">Claim</a><a href="#activity">Activity</a><a href="#launch">Since launch</a><a href="#contracts">Contracts</a><a href="/reserve/">Permanent Reserve</a><a href="/">Main site</a>
+    </div>
+    <span class="sp"></span>
+    <a class="b go" href="https://par.family/token/0xc4f021c73a5b6ffae6c43515f0a4bbf615b31c7b" target="_blank" rel="noopener">Buy TEN</a>
+  </nav>
+  <div id="mscrim" hidden></div>
+
+  <!-- ================================================================ 8.1 OVERVIEW -->
+  <section class="win out" id="overview" data-mod="chain">
+    <div class="bar"><span>Overview · live from the chain</span><span class="btns"><button type="button" data-min aria-label="Minimize">_</button><button type="button" aria-label="Maximize">□</button><button type="button" aria-label="Close">×</button></span></div>
+    <div class="body">
+      <div class="vault">
+        <div class="lcd in gauge">
+          <div class="k">Current mode</div>
+          <div class="v" data-l="modeFull">--</div>
+          <div class="s" data-l="modeWhy">reading the contract…</div>
+          <div class="bar2 ratebar" aria-hidden="true"><i id="rateBar"></i><b class="tick" style="left:50%"></b></div>
+          <div class="lbl"><span data-l="rateLbl">rate --</span><span>10% threshold</span><span>20%</span></div>
+          <div class="s" style="margin-top:12px">Mode is a status, not a switch. The contract moves between Compound and Reward on its own rule: below 10% realized organic rate means Reward, at or above means Compound, with at least 24h between changes.</div>
+        </div>
+        <div class="side">
+          <div class="kv">
+            <div><span>TEN locked forever</span><b data-l="tenLocked">--</b></div>
+            <div><span>Permanent principal</span><b data-l="ppv">--</b></div>
+            <div><span>Uncrystallized sNET yield</span><b data-l="yield">--</b></div>
+            <div><span>Reward pot</span><b data-l="pot">--</b></div>
+            <div><span>Allocated / unclaimed</span><b data-l="liab">--</b></div>
+            <div><span>Pending NET (not yet staked)</span><b data-l="pendingNet">--</b></div>
+            <div><span>Total sNET held (reference)</span><b data-l="snetHeld">--</b></div>
+            <div><span>Solvency · isSolvent()</span><b data-l="solvent">--</b></div>
+            <div><span>Latest epoch</span><b data-l="latestEpoch">--</b></div>
+            <div><span>Contract state</span><b data-l="paused">--</b></div>
+            <div><span>Read at block</span><b data-l="block">--</b></div>
+          </div>
+          <p class="st"><b data-l="badge">LOADING</b> <span data-l="updated">connecting to Robinhood Chain…</span></p>
+          <div class="alert" data-l-alert="acct" hidden></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================================ 8.2 HOW IT WORKS -->
+  <section class="win out" id="how">
+    <div class="bar"><span>How it works</span><span class="btns"><button type="button" data-min aria-label="Minimize">_</button><button type="button" aria-label="Maximize">□</button><button type="button" aria-label="Close">×</button></span></div>
+    <div class="body">
+      <p class="intro">The Reward Reserve holds TEN the way the Permanent Reserve does: it goes in and never comes out. Because it stays a holder, PAR keeps paying it rewards. The NET it receives is staked into <em>sNET</em> and becomes permanent principal. What that principal <em>earns</em> is the only thing that can ever be shared with holders.</p>
+
+      <ol class="flow" aria-label="Flow of value through the Reward Reserve">
+        <li><b>Hold TEN</b><span>TEN locked in the reserve, forever</span></li>
+        <li><b>PAR organic rewards</b><span>TEN + NET paid to the reserve as a holder</span></li>
+        <li><b>NET processed</b><span>processNet() stakes NET on NetNet</span></li>
+        <li><b>sNET principal</b><span>100% of the sNET received is principal</span></li>
+        <li><b>Productive growth</b><span>the principal grows as sNET rebases</span></li>
+        <li class="split"><b>50/50 crystallization</b><span>at the start of a Reward cycle</span></li>
+        <li><b>Reward pot</b><span>the 50% that leaves principal</span></li>
+        <li class="last"><b>Holder allocations</b><span>up to 10% of the pot per 24h epoch</span></li>
+      </ol>
+
+      <div class="two">
+        <div class="lcd in card">
+          <div class="k">PAR organic rewards</div>
+          <p>What the reserve's locked TEN earns as a PAR holder, in TEN and NET. Used to measure the rolling 7-day organic rate. When the NET is processed, all of the resulting sNET becomes principal. PAR rewards are <u>never</u> Reward Pot.</p>
+        </div>
+        <div class="lcd in card">
+          <div class="k">sNET productive yield</div>
+          <p>The growth of the staked principal after its last checkpoint. This is the only value eligible for the 50/50 split. Half strengthens principal for good, half becomes Reward Pot.</p>
+        </div>
+      </div>
+
+      <div class="list" style="margin-top:14px">
+        <div class="item"><div class="ic">01</div><div><b>Compound Mode · rate at or above 10%</b><span>PAR is paying well. Nothing is allocated. The principal keeps compounding and its growth waits, uncrystallized.</span></div></div>
+        <div class="item"><div class="ic">02</div><div><b>Entering Reward Mode · rate below 10%</b><span>The growth since the last checkpoint is crystallized: <em>50%</em> stays in principal, <em>50%</em> moves to the Reward Pot.</span></div></div>
+        <div class="item"><div class="ic">03</div><div><b>Reward Mode · one epoch per 24h</b><span>Each epoch commits up to <em>10%</em> of the live pot to eligible holders, published as a Merkle root on chain.</span></div></div>
+        <div class="item"><div class="ic">04</div><div><b>Back to Compound</b><span>When organic rewards recover, new allocations stop. The rest of the pot waits for the next Reward Mode. What was already allocated stays claimable, even if you sold.</span></div></div>
+      </div>
+      <p class="intro" style="margin-top:14px">Why two modes: when PAR pays little, the reserve pays holders from what its principal earned. When PAR pays well, the reserve keeps building the base that produces the next rewards. A 24-hour minimum dwell keeps it from flapping.</p>
+      <div class="no">
+        <div><i>×</i><span>Connect a wallet to this website: <b>never</b></span></div>
+        <div><i>×</i><span>Sign, approve or send anything from this website: <b>never</b></span></div>
+        <div><i>×</i><span>Take TEN out of the reserve: <b>no function exists</b></span></div>
+        <div><i>×</i><span>Pay rewards out of principal: <b>only its growth can be split</b></span></div>
+        <div><i class="ok">✓</i><span>Anyone can check any public address below, no login</span></div>
+        <div><i class="ok">✓</i><span>Claims happen on Blockscout, from your own wallet, directly on the verified contract</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================================ 8.3 sNET ENGINE -->
+  <section class="win out" id="engine" data-mod="chain">
+    <div class="bar"><span>sNET engine · where the value sits</span><span class="btns"><button type="button" data-min aria-label="Minimize">_</button><button type="button" aria-label="Maximize">□</button><button type="button" aria-label="Close">×</button></span></div>
+    <div class="lcd in report">
+      <div class="head"><span>RESERVE.ACCOUNTING · sNET</span><span data-l="engineStatus">READING…</span></div>
+      <div class="panels" style="margin-top:10px">
+        <div class="panel"><div class="k">Permanent principal</div><div class="v" data-l="e_ppv">--</div><div class="s">principalValueAtCheckpoint</div></div>
+        <div class="panel"><div class="k">Uncrystallized sNET yield</div><div class="v" data-l="e_yield">--</div><div class="s">principalValue() − checkpoint</div></div>
+        <div class="panel"><div class="k">Reward pot</div><div class="v" data-l="e_pot">--</div><div class="s">rewardPotValue()</div></div>
+        <div class="panel"><div class="k">Allocated / unclaimed rewards</div><div class="v" data-l="e_liab">--</div><div class="s">outstandingLiabilityValue()</div></div>
+        <div class="panel"><div class="k">Pending NET</div><div class="v" data-l="e_pending">--</div><div class="s">NET.balanceOf(reserve) · not principal until processed</div></div>
+        <div class="panel ref"><div class="k">Total sNET held · reference</div><div class="v" data-l="e_held">--</div><div class="s">sNET.balanceOf(reserve)</div></div>
+      </div>
+      <div class="stack" aria-label="Composition of the sNET held by the reserve">
+        <div class="stackbar" id="stackbar"></div>
+        <div class="stacklg">
+          <span><i class="c1"></i>principal</span><span><i class="c2"></i>uncrystallized yield</span><span><i class="c3"></i>reward pot</span><span><i class="c4"></i>allocated</span><span><i class="c5"></i>physical surplus</span>
+        </div>
+      </div>
+      <div class="rows">
+        <div><span>sNET held</span><span class="d"></span><span data-l="r_held">--</span></div>
+        <div><span>− principalValue()</span><span class="d"></span><span data-l="r_pv">--</span></div>
+        <div><span>− rewardPotValue()</span><span class="d"></span><span data-l="r_pot">--</span></div>
+        <div><span>− outstandingLiabilityValue()</span><span class="d"></span><span data-l="r_liab">--</span></div>
+        <div><span>= physical surplus (not assigned)</span><span class="d"></span><span data-l="r_surplus">--</span></div>
+      </div>
+      <div class="bottom"><span data-l="solvencyLine">Solvency rule: sNET held ≥ principal + pot + allocated</span><span class="done" data-l="badge2">LOADING</span></div>
+    </div>
+    <div class="body">
+      <p class="intro">Every bucket is read directly from the contract. The page never splits the sNET balance itself. Dashboard identity: <em>principal</em> + <em>uncrystallized yield</em> = principalValue(). When NET is processed, the contract credits the sNET it actually received to principal and moves the checkpoint in the same call, so new principal is never counted as yield.</p>
+      <p class="warn">Supported funding path: NET → processNet() → staking → sNET → principal. Do not send sNET to the reserve address: a plain sNET transfer is not a supported principal funding path and would only appear as unassigned surplus. The surplus line above is never counted as principal, yield, pot or allocations.</p>
+      <div class="alert" data-l-alert="engine" hidden></div>
+    </div>
+  </section>
+
+  <!-- ================================================================ 8.4 ORGANIC RATE -->
+  <section class="win out" id="rate" data-mod="chain">
+    <div class="bar"><span>Organic reward rate · rolling 7 days</span><span class="btns"><button type="button" data-min aria-label="Minimize">_</button><button type="button" aria-label="Maximize">□</button><button type="button" aria-label="Close">×</button></span></div>
+    <div class="body">
+      <div class="vault">
+        <div class="lcd in gauge">
+          <div class="k">Realized 7D annualized organic rate</div>
+          <div class="v" data-l="rateFull">--</div>
+          <div class="s" data-l="rateNote">annualizedOrganicRewardRateWad()</div>
+          <div class="bar2 ratebar" aria-hidden="true"><i id="rateBar2"></i><b class="tick" style="left:50%"></b></div>
+          <div class="lbl"><span>0%</span><span>10% threshold</span><span>20%</span></div>
+          <div class="s" style="margin-top:12px">Measured from genuine PAR rewards the reserve itself received, as reported on chain. Not PAR's advertised APY, not a forecast, not a guarantee.</div>
+        </div>
+        <div class="side">
+          <div class="kv">
+            <div><span>Threshold</span><b>10.00%</b></div>
+            <div><span>Current mode</span><b data-l="rateMode">--</b></div>
+            <div><span>Last mode change</span><b data-l="lastChange">--</b></div>
+            <div><span>Next change possible after</span><b data-l="nextChange">--</b></div>
+            <div><span>Exposure checkpoints in window</span><b data-l="expDays">--</b></div>
+            <div><span>Organic rewards reported · 7D</span><b data-l="org7d">--</b></div>
+            <div><span>TEN/NET spot (sanity reference)</span><b data-l="spot">--</b></div>
+          </div>
+          <p class="st"><b data-l="badge3">LOADING</b> <span data-l="updated2">--</span></p>
+        </div>
+      </div>
+    </div>
+    <div class="lcd in growth">
+      <div class="head"><span>ORGANIC RATE · HISTORY</span><span data-l="histSrc">INDEXER</span></div>
+      <div class="gchart" id="rateChart"><svg viewBox="0 0 1000 300" role="img" aria-label="Historical realized organic reward rate"></svg></div>
+      <p class="note" data-l="histNote">Waiting for data…</p>
+      <div class="rounds"><div class="rk">Mode transitions · ModeChanged events</div><ol id="modeList"><li>reading…</li></ol></div>
+    </div>
+  </section>
+
+  <!-- ================================================================ 8.5 MY TEN -->
+  <section class="win out" id="me">
+    <div class="bar"><span>My TEN · check eligibility</span><span class="btns"><button type="button" data-min aria-label="Minimize">_</button><button type="button" aria-label="Maximize">□</button><button type="button" aria-label="Close">×</button></span></div>
+    <div class="body">
+      <p class="intro">Paste any public Robinhood Chain address. This is a lookup of public blockchain and indexer data: no wallet connection, no signature, nothing stored on this site. Never paste a seed phrase or private key anywhere.</p>
+      <form class="trk" id="lookup" autocomplete="off" novalidate>
+        <input id="addr" name="addr" type="text" inputmode="text" spellcheck="false" autocapitalize="off" placeholder="0x… public address" aria-label="Public wallet address" maxlength="64">
+        <button class="b go" type="submit">Check</button>
+      </form>
+      <p class="warn" id="lookupMsg" role="status" aria-live="polite"></p>
+      <div id="meOut" class="meout" hidden>
+        <div class="lcds trk-lcds">
+          <div class="lcd in"><div class="k">TEN balance</div><div class="v" data-l="h_bal">--</div><div class="s">on chain · TEN.balanceOf</div></div>
+          <div class="lcd in"><div class="k">Eligible TEN</div><div class="v" data-l="h_elig">--</div><div class="s" data-l="h_eligSub">indexer V1</div></div>
+          <div class="lcd in"><div class="k">Claimable now</div><div class="v" data-l="h_claimable">--</div><div class="s" data-l="h_claimableSub">verified epoch artifacts</div></div>
+        </div>
+        <div class="lcd in report hist">
+          <div class="head"><span data-l="h_title">HOLDER</span><span data-l="h_status">--</span></div>
+          <h3>Purchase lots · each ages on its own · FIFO on the way out</h3>
+          <div class="tscroll"><table class="lots" id="lots"><thead><tr><th>Lot</th><th>Acquired</th><th>Held</th><th>Age</th><th>Multiplier</th><th>Status</th></tr></thead><tbody><tr><td colspan="6">--</td></tr></tbody></table></div>
+          <div class="rows" id="weights"></div>
+          <h3>Allocations by epoch</h3>
+          <div class="rounds"><ol id="allocList"><li>--</li></ol></div>
+          <h3>Claims · AllocationClaimed events</h3>
+          <div class="rounds"><ol id="claimHist"><li>--</li></ol></div>
+          <div class="bottom"><span>Sources: Robinhood Chain RPC · Indexer V1 · epoch artifacts</span><span class="done" data-l="h_badge">--</span></div>
+        </div>
+        <div class="why" id="why"></div>
+      </div>
+      <details class="loyal" open>
+        <summary>Loyalty schedule · per lot</summary>
+        <div class="tscroll"><table class="lots light"><thead><tr><th>Holding age</th><th>Eligibility / multiplier</th></tr></thead><tbody>
+          <tr><td>&lt; 30 full days</td><td>not eligible</td></tr>
+          <tr><td>30 days</td><td>1.00×</td></tr>
+          <tr><td>60 days</td><td>1.30×</td></tr>
+          <tr><td>100 days</td><td>1.70×</td></tr>
+          <tr><td>130+ days</td><td>2.00× maximum</td></tr>
+        </tbody></table></div>
+        <p class="warn">Every purchase lot ages on its own: each full day after day 30 adds 0.01× until 2.00× at day 130. Selling or sending TEN removes the oldest lots first (FIFO). The Reward Reserve, the Permanent Reserve, LP and system addresses, and the production exclusion set never receive allocations.</p>
+      </details>
+    </div>
+  </section>
+
+  <!-- ================================================================ 8.6 CLAIM CENTER -->
+  <section class="win out" id="claim">
+    <div class="bar"><span>Claim center · instructions only</span><span class="btns"><button type="button" data-min aria-label="Minimize">_</button><button type="button" aria-label="Maximize">□</button><button type="button" aria-label="Close">×</button></span></div>
+    <div class="body">
+      <p class="intro">This site never claims for you. It prepares the exact values; you send the transaction yourself on Blockscout, on the verified Reward Reserve contract, with the wallet that owns the reward. You pay only Robinhood Chain gas.</p>
+      <div id="claimOut"><div class="claimstate"><b>CHECK AN ADDRESS</b><span>Use My TEN above to load the claim data for a public address.</span></div></div>
+      <div class="howto in">
+        <div class="k">How to claim</div>
+        <ol>
+          <li>Check your address above and confirm that <b>CLAIMABLE NOW</b> is greater than zero and the epoch shows <b>VERIFIED</b>.</li>
+          <li>Click <b>CLAIM ON BLOCKSCOUT</b>.</li>
+          <li>On Blockscout, open the verified Reward Reserve contract's <b>Write</b> tab (Contract → Write).</li>
+          <li>Connect the wallet that owns this reward entitlement. The claim pays <code>msg.sender</code>: it only works from the address you checked.</li>
+          <li>Open the method <b>claim</b> (selector <code>0xae0b51df</code>).</li>
+          <li>Enter the exact values shown by TenTen, in this order:
+            <ul>
+              <li><code>epochId (uint256)</code>: the epoch number</li>
+              <li><code>amount (uint256)</code>: the raw integer, exactly as shown. Do not press the ×10<sup>18</sup> button.</li>
+              <li><code>proof (bytes32[])</code>: one hash per field. Paste the first hash, press <b>+</b> to add a field for each next hash, keep the order.</li>
+            </ul></li>
+          <li>Optional: press <b>Simulate</b> first. Then press <b>Write</b> and confirm in your wallet.</li>
+          <li>You pay only the network gas required by the transaction.</li>
+          <li>After confirmation, come back here and check your address again.</li>
+        </ol>
+        <p class="warn">One transaction claims the whole allocation of one epoch. Partial claims do not exist, and each epoch is claimed separately. <b>amount</b> is the face value fixed at publish time: the sNET actually paid is that amount scaled by sNET's growth since publish, so it can be slightly higher.</p>
+        <div class="no" style="margin-top:8px">
+          <div><i>×</i><span>Never send TEN, NET or sNET to claim rewards.</span></div>
+          <div><i>×</i><span>Never share a seed phrase or private key.</span></div>
+          <div><i>×</i><span>TenTen support will never ask for either.</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================================ 8.7 ACTIVITY -->
+  <section class="win out" id="activity" data-mod="logs">
+    <div class="bar"><span>Reserve activity · real events only</span><span class="btns"><button type="button" data-min aria-label="Minimize">_</button><button type="button" aria-label="Maximize">□</button><button type="button" aria-label="Close">×</button></span></div>
+    <div class="lcd in report hist">
+      <div class="head"><span>REWARD_RESERVE.LOG</span><span data-l="actStatus">READING…</span></div>
+      <div class="rounds" style="border-top:0;margin-top:6px;padding-top:0"><ol id="actList"><li>reading the event log…</li></ol></div>
+      <div class="bottom"><span>Source: contract event log · <a data-href="logs" target="_blank" rel="noopener" style="color:var(--ph-dim)">full log on Blockscout ↗</a></span><span class="done" data-l="badge4">LOADING</span></div>
+    </div>
+  </section>
+
+  <!-- ================================================================ 8.8 SINCE LAUNCH -->
+  <section class="win out" id="launch" data-mod="logs">
+    <div class="bar"><span>Since launch · cumulative flows</span><span class="btns"><button type="button" data-min aria-label="Minimize">_</button><button type="button" aria-label="Maximize">□</button><button type="button" aria-label="Close">×</button></span></div>
+    <div class="body">
+      <p class="intro">Flows are totals of every on-chain event since deployment (block 73,845,148). They are not balances: principal can grow, the pot can be spent, allocations can be claimed. Current balances live in the <a href="#engine">sNET engine</a>.</p>
+      <div class="kv" id="launchKv">
+        <div><span>TEN permanently locked · balance, can only grow</span><b data-l="L_ten">--</b></div>
+        <div><span>Genuine PAR NET rewards reported</span><b data-l="L_parNet">--</b></div>
+        <div><span>Genuine PAR TEN rewards reported</span><b data-l="L_parTen">--</b></div>
+        <div><span>NET processed into sNET</span><b data-l="L_netProc">--</b></div>
+        <div><span>Principal credited via processNet()</span><b data-l="L_princNet">--</b></div>
+        <div><span>Principal credited via fundPrincipal()</span><b data-l="L_princFund">--</b></div>
+        <div><span>sNET productive growth crystallized</span><b data-l="L_growth">--</b></div>
+        <div><span>→ crystallized to principal</span><b data-l="L_toPrinc">--</b></div>
+        <div><span>→ crystallized to Reward Pot</span><b data-l="L_toPot">--</b></div>
+        <div><span>Rewards allocated (epochs, net of cancellations)</span><b data-l="L_alloc">--</b></div>
+        <div><span>Rewards claimed · face value / sNET paid</span><b data-l="L_claimed">--</b></div>
+        <div><span>Mode changes · epochs published · claims</span><b data-l="L_counts">--</b></div>
+      </div>
+      <p class="st"><b data-l="badge5">LOADING</b> <span data-l="launchNote">--</span></p>
+      <p class="warn">Organic PAR rewards are an operator attestation (reportOrganicInflow), hard-capped on chain by the reserve's real balance increase. Crystallization split is derived from each ModeChanged event exactly as the contract does it: half the growth (rounded down) to the pot, the rest stays principal. Uncrystallized growth is not included until it is crystallized.</p>
+    </div>
+  </section>
+
+  <!-- ================================================================ 8.9 CONTRACTS -->
+  <section class="win out" id="contracts" data-mod="chain">
+    <div class="bar"><span>Contracts · read them yourself</span><span class="btns"><button type="button" data-min aria-label="Minimize">_</button><button type="button" aria-label="Maximize">□</button><button type="button" aria-label="Close">×</button></span></div>
+    <div class="body">
+      <div class="clist" id="clist"></div>
+      <div class="kv" style="margin-top:10px">
+        <div><span>Chain</span><b>Robinhood Chain · id 4663</b></div>
+        <div><span>Reward Reserve deployment block</span><b>73,845,148</b></div>
+        <div><span>Spot Reader deployment block</span><b>73,845,057</b></div>
+        <div><span>Operator (timing and reporting role)</span><b data-l="operator">--</b></div>
+        <div><span>Contract wiring check</span><b data-l="wiring">--</b></div>
+      </div>
+      <p class="intro" style="margin-top:14px">What a holder needs from the Reward Reserve:</p>
+      <pre class="fnlist in">claim(epochId, amount, proof)            anyone · pays msg.sender's allocation, once per epoch
+verifyAllocation(epochId, holder, amount, proof)       read · true if the proof matches the root
+claimedBy(epochId, holder)                             read · true once claimed
+epochs(epochId)          read · root, committedTotal, claimed, budget, publishedAt, dataRef
+
+principalValueAtCheckpoint()  principalValue()  rewardPotValue()
+outstandingLiabilityValue()   isSolvent()  mode()  latestEpochId()
+annualizedOrganicRewardRateWad()                                  read only</pre>
+      <p class="warn">No function moves TEN out of the reserve. Pause never blocks claim(): holders can always collect what was allocated. Verification status is read live from Blockscout and shown only when Blockscout confirms it.</p>
+    </div>
+  </section>
+
+  <footer class="status out">
+    <div class="cells"><span><i></i>REWARD RESERVE v1</span><span>Robinhood Chain</span><span>TEN · NET · sNET</span><span data-l="badge6">LOADING</span><span>READ-ONLY</span><span>10/10</span></div>
+    <p>The Reward Reserve is a community contract around TEN, an unofficial meme token quoted in a permissionless asset (NET). Not affiliated with Robinhood, PAR or NetNet. The organic rate is a realized historical measurement, not a promised return. Rewards depend on sNET growth and can be zero. TEN sent to the reserve cannot be recovered by anyone. Nothing here is financial advice. Prices can go to zero.</p>
+    <p>This page never connects a wallet and never sends a transaction. REWARD RESERVE <code>0x313dfCB9E091D33482e75EEFa00E0156b42119b5</code> · © 2026 TenTen Capital</p>
+  </footer>
+
+</div>
+<script src="assets/rr-config.js"></script>
+<script src="assets/rr-chain.js"></script>
+<script src="assets/rr-providers.js"></script>
+<script src="assets/rr-app.js"></script>
+</body>
+</html>

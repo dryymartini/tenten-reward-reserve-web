@@ -1,0 +1,147 @@
+/* ============================================================================
+   Reward Reserve page — additions on top of tenten-base.css
+   Uses only the base tokens; no new colors except the red already used by
+   the live site for "×" marks (#9A2E2E).
+   ========================================================================== */
+
+/* ---- live/stale states: never leave old values looking live ------------ */
+[data-mod].is-stale .lcd .v,[data-mod].is-stale .kv b,[data-mod].is-stale .panel .v,
+[data-mod].is-stale .lcds .lcd .v{opacity:.45;text-shadow:none}
+[data-mod].is-stale .kv b::after,[data-mod].is-stale .panel .v::after{content:" ·stale";font-size:.6em;letter-spacing:.1em;color:#9A2E2E}
+.lcd [data-mod].is-stale .panel .v::after,[data-mod].is-stale .lcd .panel .v::after{color:var(--ph-dim)}
+.st b.bad,.report .bottom .done.bad{background:#9A2E2E;color:#F4F1E4;border-color:#9A2E2E}
+.report .bottom .done.bad{background:none;color:#FF8A8A;border-color:#FF8A8A;text-shadow:none}
+.report .bottom .done.bad::after{background:#FF8A8A}
+.report .bottom .done.wait::after{animation-duration:.5s}
+.alert{margin-top:10px;padding:8px 10px;border:2px solid #9A2E2E;background:#F6E7E2;color:#5A1717;font-size:12px;line-height:1.5}
+.alert b{letter-spacing:.12em}
+.alert.info{border-color:var(--lo);background:var(--panel-2);color:var(--ink-2)}
+
+/* ---- rate bar with threshold tick --------------------------------------- */
+.ratebar{overflow:visible}
+.ratebar .tick{position:absolute;top:-6px;bottom:-6px;width:2px;background:var(--panel);box-shadow:0 0 4px rgba(255,255,255,.4);margin-left:-1px}
+.gauge .lbl span:nth-child(2){text-align:center}
+
+/* ---- flow diagram (How it works) ---------------------------------------- */
+.flow{list-style:none;display:grid;gap:22px;margin:14px 0 4px;counter-reset:f}
+@media(min-width:620px){.flow{grid-template-columns:repeat(2,1fr);column-gap:30px}}
+@media(min-width:960px){.flow{grid-template-columns:repeat(4,1fr)}}
+.flow li{position:relative;background:var(--lcd);color:var(--ph);font-family:var(--lcdf);padding:8px 10px 9px;border:2px solid;border-color:var(--lo) var(--hi) var(--hi) var(--lo);counter-increment:f;min-width:0}
+.flow li::before{content:counter(f,decimal-leading-zero);position:absolute;top:6px;right:8px;font-size:14px;color:var(--ph-dim)}
+.flow li b{display:block;font-weight:400;font-size:19px;letter-spacing:.06em;text-transform:uppercase;text-shadow:0 0 6px var(--ph-glow);padding-right:22px}
+.flow li span{display:block;font-size:15px;color:var(--ph-dim);line-height:1.15;margin-top:2px}
+.flow li.split{background:var(--title);border-color:var(--lo) var(--hi) var(--hi) var(--lo)}
+.flow li.split b,.flow li.split span,.flow li.split::before{color:#F4F1E4;text-shadow:none}
+/* arrows: down on 1 column, right inside rows on wider layouts */
+.flow li:not(.last)::after{content:"▼";position:absolute;left:50%;bottom:-21px;transform:translateX(-50%);color:var(--title);font:700 13px/1 var(--ui)}
+@media(min-width:620px){
+  .flow li:not(.last)::after{content:"►";left:auto;right:-22px;bottom:auto;top:50%;transform:translateY(-50%)}
+  .flow li:nth-child(2n):not(.last)::after{content:"▼";right:auto;left:50%;top:auto;bottom:-21px;transform:translateX(-50%)}
+}
+@media(min-width:960px){
+  .flow li:nth-child(2n):not(.last)::after{content:"►";left:auto;right:-22px;bottom:auto;top:50%;transform:translateY(-50%)}
+  .flow li:nth-child(4n):not(.last)::after{content:"▼";right:auto;left:50%;top:auto;bottom:-21px;transform:translateX(-50%)}
+}
+
+.two{display:grid;gap:10px;margin-top:16px}
+@media(min-width:720px){.two{grid-template-columns:1fr 1fr}}
+.two .card{padding:12px 14px}
+.two .card p{font-size:17px;line-height:1.25;color:var(--ph);margin-top:6px}
+.two .card u{text-decoration-thickness:1px}
+
+/* ---- sNET engine composition bar ---------------------------------------- */
+.panel.ref{border-style:dashed}
+.stack{margin-top:14px}
+.stackbar{display:flex;height:22px;border:2px solid var(--ph);background:rgba(107,245,154,.05)}
+.stackbar i{display:block;height:100%;min-width:0}
+.stackbar .c1,.stacklg .c1{background:var(--ph)}
+.stackbar .c2,.stacklg .c2{background:repeating-linear-gradient(90deg,var(--ph) 0 2px,transparent 2px 4px)}
+.stackbar .c3,.stacklg .c3{background:var(--panel)}
+.stackbar .c4,.stacklg .c4{background:repeating-linear-gradient(135deg,var(--panel) 0 3px,transparent 3px 6px)}
+.stackbar .c5,.stacklg .c5{background:var(--ph-dim);opacity:.45}
+.stackbar .empty{flex:1;display:grid;place-items:center;font-size:14px;color:var(--ph-dim);text-shadow:none;letter-spacing:.1em}
+.stacklg{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:6px;font-size:15px;color:var(--ph-dim);text-shadow:none}
+.stacklg i{display:inline-block;width:16px;height:10px;margin-right:6px;vertical-align:0;border:1px solid var(--ph-dim)}
+
+/* ---- rate chart -------------------------------------------------------- */
+.gchart .ln{fill:none;stroke:var(--ph);stroke-width:3;stroke-linejoin:round;filter:drop-shadow(0 0 4px var(--ph-glow))}
+.gchart .thr{stroke:var(--panel);stroke-width:2;stroke-dasharray:8 6}
+.gchart .thrt{fill:var(--panel);font-family:var(--lcdf);font-size:15px}
+.gchart .msg{fill:var(--ph-dim);font-family:var(--lcdf);font-size:20px;letter-spacing:.12em}
+.gchart .msg2{fill:var(--ph-dim);font-family:var(--lcdf);font-size:16px;letter-spacing:.06em}
+.growth .rounds{margin-top:10px}
+
+/* ---- holder lookup ----------------------------------------------------- */
+.meout{margin-top:12px;display:grid;gap:10px}
+.trk-lcds{padding:0;background:none}
+.tscroll{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%}
+table.lots{width:100%;border-collapse:collapse;font-family:var(--lcdf);font-size:18px;white-space:nowrap}
+table.lots th{font-weight:400;font-size:14px;letter-spacing:.14em;text-transform:uppercase;color:var(--ph-dim);text-shadow:none;text-align:left;padding:4px 10px 4px 0;border-bottom:2px dotted rgba(107,245,154,.45)}
+table.lots td{padding:3px 10px 3px 0;border-bottom:1px dotted rgba(107,245,154,.25)}
+table.lots td.num,table.lots th.num{text-align:right}
+table.lots.light{font-size:17px;margin-top:6px}
+table.lots.light th{color:var(--title);border-bottom-color:var(--lo)}
+table.lots.light td{border-bottom-color:var(--lo);color:var(--ink)}
+.why{background:var(--panel-2);padding:10px 12px;font-size:13px;line-height:1.55;border:2px solid;border-color:var(--lo) var(--hi) var(--hi) var(--lo)}
+.why b{display:block;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--title);margin-bottom:4px}
+.why ul{padding-left:18px}
+.loyal{margin-top:14px}
+.loyal summary{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--title);padding:4px 0}
+.hist .rounds{margin-top:0;border-top:0;padding-top:0}
+.rounds li.wrap{white-space:normal;grid-template-columns:1fr}
+.rounds li .tag{font-size:14px;letter-spacing:.12em;border:1px solid var(--ph-dim);padding:0 5px;color:var(--ph-dim);text-shadow:none}
+.rounds li .tag.ok{border-color:var(--ph);color:var(--ph)}
+.rounds li .tag.bad{border-color:#FF8A8A;color:#FF8A8A}
+
+/* ---- claim center ------------------------------------------------------ */
+.claimstate{display:grid;gap:4px;padding:12px;background:var(--panel-2);border:2px solid;border-color:var(--lo) var(--hi) var(--hi) var(--lo)}
+.claimstate b{font-family:var(--lcdf);font-weight:400;font-size:26px;letter-spacing:.08em;color:var(--title)}
+.claimstate.bad b{color:#9A2E2E}
+.claimstate span{font-size:13px;color:var(--ink-2)}
+.claimstate ul{font-size:12px;color:var(--ink-2);padding-left:18px;margin-top:4px}
+.claimcard{margin-top:10px;padding:12px 14px;display:grid;gap:10px}
+.claimcard .top{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+.claimcard .top .k{font-size:15px}
+.claimcard .amt{font-size:clamp(28px,5vw,44px);line-height:1}
+.claimcard .checks{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:15px;color:var(--ph-dim);text-shadow:none}
+.claimcard .checks i{font-style:normal;color:var(--ph)}
+.param{display:grid;gap:4px}
+.param .pk{font-size:14px;letter-spacing:.14em;text-transform:uppercase;color:var(--ph-dim);text-shadow:none}
+.param .pv{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;align-items:stretch}
+.param code{display:block;font-family:var(--lcdf);font-size:18px;line-height:1.15;padding:6px 8px;background:var(--hi);color:var(--ink);text-shadow:none;word-break:break-all;min-width:0}
+.param .n{color:var(--ink-2);margin-right:6px}
+.param .b{padding:4px 10px;font-size:12px}
+.proof{display:grid;gap:4px;max-height:360px;overflow:auto;padding-right:2px}
+.cta{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.cta .b.go{font-size:14px;padding:9px 16px}
+.cta small{font-family:var(--lcdf);font-size:15px;color:var(--ph-dim);text-shadow:none}
+.howto{margin-top:14px;padding:12px 14px;background:var(--hi)}
+.howto .k{font-size:11px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--title);margin-bottom:6px}
+.howto ol{padding-left:22px;font-size:13px;line-height:1.6;display:grid;gap:2px}
+.howto ul{padding-left:18px;margin:2px 0}
+.howto code{font-family:var(--lcdf);font-size:16px;background:var(--panel-2);padding:0 4px}
+
+/* ---- contracts list ---------------------------------------------------- */
+.clist{display:grid;gap:8px}
+.crow{display:grid;gap:4px;padding:8px 0;border-bottom:1px dotted var(--lo)}
+.crow .ch{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
+.crow .ch b{font-size:12px;letter-spacing:.12em;text-transform:uppercase}
+.crow .ch small{font-size:10px;letter-spacing:.14em;text-transform:uppercase;border:1px solid var(--lo);padding:1px 6px;background:var(--panel-2);color:var(--ink-2)}
+.crow .ch small.ok{border-color:var(--title);color:var(--title)}
+.crow .ca2{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:6px;align-items:stretch}
+.crow code{display:block;font-family:var(--lcdf);font-size:18px;padding:6px 8px;background:var(--hi);color:var(--ink);word-break:break-all;line-height:1.1;min-width:0}
+.crow .b{padding:4px 10px;font-size:12px}
+@media(max-width:520px){.crow .ca2{grid-template-columns:1fr 1fr}.crow code{grid-column:1/-1}.crow .b{justify-content:center}}
+.kv b a{color:var(--title);text-decoration:none}
+.kv b a:hover{text-decoration:underline}
+@media(max-width:520px){.kv div{flex-wrap:wrap}.kv b{white-space:normal;word-break:break-all;text-align:right;margin-left:auto}}
+
+/* narrow screens: engine panels stack the caption under the value (no overlap);
+   report rows keep the full number and let the label truncate instead */
+@media(max-width:719px){
+  .panel{grid-template-columns:minmax(0,1fr)}
+  .panel .v{font-size:clamp(26px,8vw,40px);white-space:normal;overflow-wrap:anywhere}
+  .panel .s{font-size:15px}
+}
+.report .rows span:first-child{overflow:hidden;text-overflow:ellipsis;min-width:0}
+.report .rows span:last-child{overflow:visible;text-overflow:clip;flex-shrink:0}
