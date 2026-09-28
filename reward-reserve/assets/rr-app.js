@@ -268,8 +268,10 @@
     return CH.getAllLogs(R, null, C.deployBlock, headNo).then(function (res) {
       var evs = res.logs.map(decodeLog).filter(Boolean).sort(function (a, b) { return b.block - a.block || b.idx - a.idx; });
       var blocks = []; evs.forEach(function (e) { if (blocks.indexOf(e.block) < 0) blocks.push(e.block); });
-      return CH.timestamps(blocks.slice(0, 120)).then(function (ts) {
+      var need = blocks.slice(0, 120); if (need.indexOf(C.deployBlock) < 0) need.push(C.deployBlock); // deployment anchors the growth chart at 0
+      return CH.timestamps(need).then(function (ts) {
         evs.forEach(function (e) { e.ts = ts[e.block]; });
+        ST.deployTs = ts[C.deployBlock] || ST.deployTs;
         ST.logs = { evs: evs, head: headNo, at: Date.now() };
         renderLogs();
       });
@@ -343,6 +345,9 @@
   function computePGSeries(evs) {
     var chrono = evs.slice().sort(function (a, b) { return a.block - b.block || a.idx - b.idx; });
     var principal = 0n, pot = 0n, pts = [], dropped = 0;
+    // A freshly deployed reserve holds nothing: (0, 0) at the deployment block is a real fact,
+    // not an estimate, and anchors the line even before the first PrincipalFunded/NetProcessed.
+    if (ST.deployTs) pts.push({ t: ST.deployTs, p: 0n, r: 0n });
     function push(e) { if (e.ts) pts.push({ t: e.ts, p: principal, r: pot }); else dropped++; }
     chrono.forEach(function (e) {
       if (e.name === 'PrincipalFunded' || e.name === 'NetProcessed') { principal = e.newPv; push(e); }
