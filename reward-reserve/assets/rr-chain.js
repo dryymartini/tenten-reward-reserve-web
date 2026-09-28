@@ -47,7 +47,11 @@
   var TOPICS = {
     Crystallized:       '0xf4165e6a03db2f59ebd929ce3b1189f8f17451c4e5a5e95f0a0d8fa2163f208c',
     EpochPublished:      '0x4b06ca08b73c7994c0673265cf727603b6487d8f60834d83b60d11a2e61b103f',
-    AllocationClaimed:   '0xee89b274de26d8ff2f7a29873f93a4aeb474c4aba006584d53c8a39e71f41d2a'
+    AllocationClaimed:   '0xee89b274de26d8ff2f7a29873f93a4aeb474c4aba006584d53c8a39e71f41d2a',
+    // PrincipalFunded(address indexed from, uint256 amount, uint256 newPrincipalValue) — 2026-09-28,
+    // per Matteo. Unlike the three above, its data layout is confirmed, so its `data` field (amount,
+    // then newPrincipalValue — `from` is indexed, so it's not in `data`) is safe to decode.
+    PrincipalFunded:     '0x383d1a5e22a4e150ccf658d9728c2f801e02667e7cce8a4b2edac14e6a8f91b5'
   };
 
   // ---- ABI encode/decode ---------------------------------------------------

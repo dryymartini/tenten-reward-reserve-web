@@ -198,7 +198,8 @@ async function scenario(name, { rpc, wallet, epochsBaseUrl, autoConnect = true, 
     mToClaimUsd: document.querySelector('[data-l="m_toClaim_usd"]') ? document.querySelector('[data-l="m_toClaim_usd"]').textContent : null,
     gLivePrincipal: document.querySelector('[data-l="gLivePrincipal"]') ? document.querySelector('[data-l="gLivePrincipal"]').textContent : null,
     gLiveLiab: document.querySelector('[data-l="gLiveLiab"]') ? document.querySelector('[data-l="gLiveLiab"]').textContent : null,
-    gLiveAsOf: document.querySelector('[data-l="gLiveAsOf"]') ? document.querySelector('[data-l="gLiveAsOf"]').textContent : null
+    gLiveAsOf: document.querySelector('[data-l="gLiveAsOf"]') ? document.querySelector('[data-l="gLiveAsOf"]').textContent : null,
+    gHasPrincipalLine: !!document.querySelector('#gChart svg path.pline')
   }));
   const shot = path.join(OUT, `${name}.png`);
   await page.screenshot({ path: shot, fullPage: true });
@@ -238,11 +239,14 @@ await scenario('claim-claimed', { rpc: makeRpc({ verify: true, claimed: true }),
 // "Ready", never show a negative duration
 await scenario('countdown-overdue', { rpc: makeRpc({ latestEpochId: 0, lastCrystallization: 1000, crystallizationPeriod: 1 }), wallet: null, addr: null });
 
-// growth chart with a handful of real events on the wire: must count/report them without
-// inventing the actual principal/reward/unclaimed numbers (event ABI not yet confirmed)
+// growth chart with a handful of real events on the wire: must count/report the three
+// unconfirmed-layout events without inventing values, but DOES plot the sNET Principal line from
+// PrincipalFunded's own reported newPrincipalValue (its layout is confirmed)
 {
-  const T = ['0xf4165e6a03db2f59ebd929ce3b1189f8f17451c4e5a5e95f0a0d8fa2163f208c', '0x4b06ca08b73c7994c0673265cf727603b6487d8f60834d83b60d11a2e61b103f', '0xee89b274de26d8ff2f7a29873f93a4aeb474c4aba006584d53c8a39e71f41d2a'];
-  const logs = [{ topics: [T[0]], data: '0x' }, { topics: [T[1]], data: '0x' }, { topics: [T[2]], data: '0x' }, { topics: [T[2]], data: '0x' }];
+  const T = ['0xf4165e6a03db2f59ebd929ce3b1189f8f17451c4e5a5e95f0a0d8fa2163f208c', '0x4b06ca08b73c7994c0673265cf727603b6487d8f60834d83b60d11a2e61b103f', '0xee89b274de26d8ff2f7a29873f93a4aeb474c4aba006584d53c8a39e71f41d2a', '0x383d1a5e22a4e150ccf658d9728c2f801e02667e7cce8a4b2edac14e6a8f91b5'];
+  // PrincipalFunded(address indexed from, uint256 amount, uint256 newPrincipalValue): data = [amount, newPrincipalValue]
+  const fundedLog = { topics: [T[3]], blockNumber: '0x47a6767', data: w(250000000) + w(7000000).slice(2) }; // newPrincipalValue = 7,000,000 (0.007 sNET @ 9 decimals)
+  const logs = [{ topics: [T[0]], data: '0x' }, { topics: [T[1]], data: '0x' }, { topics: [T[2]], data: '0x' }, { topics: [T[2]], data: '0x' }, fundedLog];
   await scenario('growth-events', { rpc: makeRpc({ latestEpochId: 0, logs }), wallet: null, addr: null });
 }
 
@@ -299,14 +303,18 @@ for (const r of results) {
 const overdue = results.find(r => r.name === 'countdown-overdue');
 if (overdue.monCountdown.trim() !== 'Ready') bad.push('countdown-overdue: a past target must clamp to "Ready", got: ' + overdue.monCountdown);
 
-// ---- growth chart: no events -> explicit empty state, never a fabricated trend; with
-// events -> counts them but must not claim to show exact principal/reward/unclaimed values
+// ---- growth chart: no events -> explicit empty state, never a fabricated trend; with events but
+// no PrincipalFunded -> counts the rest but no principal line yet; with a PrincipalFunded event ->
+// plots the sNET Principal line from its own reported value, other two lines still not fabricated
 for (const r of results.filter(r => r.name !== 'growth-events' && r.name !== 'growth-log-fail')) {
-  if (!/^0 events/i.test(r.gTotal) || !/no history before this point/i.test(r.gNote)) bad.push(r.name + ': growth chart with no on-chain events must say so explicitly, not show a fabricated series (gTotal=' + r.gTotal + ')');
+  if (!/^0 events/i.test(r.gTotal) || !/no principalfunded event yet/i.test(r.gNote)) bad.push(r.name + ': growth chart with no on-chain events must say so explicitly, not show a fabricated series (gTotal=' + r.gTotal + ')');
+  if (r.gHasPrincipalLine) bad.push(r.name + ": principal line rendered with no PrincipalFunded event on the wire");
 }
 const growth = results.find(r => r.name === 'growth-events');
-if (!/^4 /.test(growth.gTotal)) bad.push('growth-events: expected the mocked 4 events to be counted, got: ' + growth.gTotal);
-if (!/pending confirmation/i.test(growth.gNote)) bad.push('growth-events: must flag that exact values are pending event-ABI confirmation rather than plotting guessed numbers');
+if (!/^5 /.test(growth.gTotal)) bad.push('growth-events: expected the mocked 5 events to be counted, got: ' + growth.gTotal);
+if (!/reward-pot\/unclaimed values need the confirmed event layout/i.test(growth.gNote)) bad.push('growth-events: must flag that reward-pot/unclaimed values are pending event-ABI confirmation rather than plotting guessed numbers');
+if (!/1 funding event\(s\) plotted/i.test(growth.gNote)) bad.push('growth-events: must report the PrincipalFunded event as plotted, got gNote=' + growth.gNote);
+if (!growth.gHasPrincipalLine) bad.push('growth-events: expected a plotted sNET Principal line (path.pline) when a PrincipalFunded event is on the wire');
 
 // ---- growth "live" point: populated from refreshOverview's own reads, so it must render on
 // every scenario regardless of the event-log outcome, and must NOT be hidden when the event-log

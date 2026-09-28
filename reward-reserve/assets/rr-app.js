@@ -27,6 +27,8 @@
   // usdLabel() call returns '' (never a guessed number) until then — matches the rest of the
   // site's "never fabricate, show nothing instead" rule.
   var PRICE = null; // { ten: usd per 1 TEN, net: usd per 1 NET (== per 1 sNET) } | null
+  var LIVE = null;  // { principal, ts, block } set by refreshOverview; extends the Growth chart's
+                     // sNET Principal line to "now" without a second read of the same values
   function usdLabel(v, dec, key) {
     if (!PRICE || v == null) return '';
     var price = PRICE[key]; if (!(price > 0)) return '';
@@ -151,6 +153,7 @@
         // shown independently of the historical event-log fetch below — so it still appears
         // and updates even when that fetch fails (see refreshGrowth()).
         S('gLivePrincipal', sn(principal)); S('gLiveLiab', sn(liab)); S('gLiveAsOf', 'as of block ' + num(head.number));
+        LIVE = { principal: principal, ts: head.ts, block: head.number };
 
         var lastCryst = CH.u(r[5], 0), period = CH.u(r[6], 0);
         if (lastCryst === 0n) {
@@ -183,14 +186,38 @@
   setInterval(refreshOverview, 60000);
 
   // ------------------------------------------------------------ growth chart (event log, since deploy)
-  // Event topic0 hashes were supplied as-given (only syntactic 32-byte hex checked, not
-  // independently recomputed — that needs the exact event signature). Decoding each log's
-  // `data` into the actual sNET principal / reward-pot / unclaimed values needs the confirmed
-  // parameter types and indexed/non-indexed layout for Crystallized / EpochPublished /
-  // AllocationClaimed, which is not yet confirmed — so this only counts and dates events
-  // rather than guessing a field layout and risking a fabricated number.
+  // Crystallized / EpochPublished / AllocationClaimed topic0 hashes were supplied as-given (only
+  // syntactic 32-byte hex checked). Decoding their `data` into actual reward-pot/unclaimed values
+  // needs their confirmed parameter layout, which isn't confirmed yet — so those two lines stay
+  // empty and this only counts/dates those three events, rather than guessing a field layout.
+  // PrincipalFunded(address indexed from, uint256 amount, uint256 newPrincipalValue) is different:
+  // Matteo gave its exact layout, so its own reported newPrincipalValue is plotted directly as the
+  // sNET Principal line — never estimated, just each event's own checkpoint.
   // This is entirely independent of the "live" point above (populated in refreshOverview from
-  // values already read every 60s): a failure here never hides or blocks that live point.
+  // values already read every 60s): a failure here never hides or blocks that live point, and the
+  // live principal/timestamp are reused (via LIVE) as the line's final point.
+  function drawPrincipalChart(svg, pts) {
+    var W = 1000, Hh = 300, L = 62, Rr = 10, T = 14, B = 30;
+    var t0 = pts[0].t, t1 = pts[pts.length - 1].t; if (t1 === t0) t1 = t0 + 3600;
+    var maxV = 1n; pts.forEach(function (pt) { if (pt.v > maxV) maxV = pt.v; });
+    var topV = maxV + maxV / 4n + 1n; // headroom so a flat line never sits on the top gridline
+    var floorV = -(topV / 3n); // virtual floor so the deploy anchor (0) renders above the bottom axis
+    var domain = topV - floorV;
+    var X = function (t) { return L + (t - t0) / (t1 - t0) * (W - L - Rr); };
+    var Y = function (v) { return T + (1 - Number((v - floorV) * 10000n / domain) / 10000) * (Hh - T - B); };
+    var o = '';
+    for (var i = 0; i <= 4; i++) {
+      var v = topV * BigInt(Math.round(i / 4 * 10000)) / 10000n;
+      o += '<line class="grid" x1="' + L + '" x2="' + (W - Rr) + '" y1="' + Y(v) + '" y2="' + Y(v) + '"/><text class="ax" x="' + (L - 6) + '" y="' + (Y(v) + 5) + '" text-anchor="end">' + sn(v).replace(' sNET', '') + '</text>';
+    }
+    for (var j = 0; j <= 4; j++) {
+      var t = t0 + (t1 - t0) * j / 4, d = new Date(t * 1000);
+      o += '<text class="ax" x="' + X(t) + '" y="' + (Hh - 8) + '" text-anchor="' + (j === 0 ? 'start' : j === 4 ? 'end' : 'middle') + '">' + d.getUTCDate() + ' ' + ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getUTCMonth()] + '</text>';
+    }
+    o += '<path class="pline" d="' + pts.map(function (pt, k) { return (k ? 'L' : 'M') + X(pt.t).toFixed(1) + ' ' + Y(pt.v).toFixed(1); }).join(' ') + '"/>';
+    o += pts.map(function (pt) { return '<circle class="pdot" cx="' + X(pt.t).toFixed(1) + '" cy="' + Y(pt.v).toFixed(1) + '" r="4.5"/>'; }).join('');
+    svg.innerHTML = o;
+  }
   function refreshGrowth() {
     var svg = $('#gChart svg'); if (!svg) return;
     function showMsg(l1, l2) {
@@ -202,19 +229,43 @@
       showMsg('DEPLOY BLOCK NOT SET'); return;
     }
     showMsg('READING EVENT LOG…');
-    CH.getLogsPaged(R, [[CH.TOPICS.Crystallized, CH.TOPICS.EpochPublished, CH.TOPICS.AllocationClaimed]], C.deployBlock).then(function (logs) {
-      if (!logs.length) {
-        S('gTotal', '0 EVENTS'); S('gNote', 'No history before this point yet — this fills in as Crystallized / EpochPublished / AllocationClaimed events happen. Nothing is shown rather than an invented trend.');
-        showMsg('NO HISTORY BEFORE THIS POINT', 'chart fills in once the reserve crystallizes'); return;
-      }
+    CH.getLogsPaged(R, [[CH.TOPICS.Crystallized, CH.TOPICS.EpochPublished, CH.TOPICS.AllocationClaimed, CH.TOPICS.PrincipalFunded]], C.deployBlock).then(function (logs) {
+      var funded = logs.filter(function (l) { return l.topics && l.topics[0] === CH.TOPICS.PrincipalFunded; })
+        .map(function (l) { return { block: Number(BigInt(l.blockNumber)), value: CH.u(l.data, 1) }; }) // data = [amount, newPrincipalValue]; `from` is indexed, not in data
+        .sort(function (a, b) { return a.block - b.block; });
+
       var byTopic = { c: 0, e: 0, a: 0 };
       logs.forEach(function (l) {
         var t = l.topics && l.topics[0];
         if (t === CH.TOPICS.Crystallized) byTopic.c++; else if (t === CH.TOPICS.EpochPublished) byTopic.e++; else if (t === CH.TOPICS.AllocationClaimed) byTopic.a++;
       });
-      S('gTotal', logs.length + ' EVENT' + (logs.length === 1 ? '' : 'S') + ' SINCE DEPLOY');
-      S('gNote', byTopic.c + ' crystallization(s) · ' + byTopic.e + ' epoch(s) published · ' + byTopic.a + ' claim(s). Exact values need the confirmed event parameter layout before they can be plotted without guessing — pending confirmation.');
-      showMsg('EVENT COUNTS ONLY', 'awaiting confirmed event ABI to plot exact values');
+      var otherNote = byTopic.c + ' crystallization(s) · ' + byTopic.e + ' epoch(s) published · ' + byTopic.a + ' claim(s) — reward-pot/unclaimed values need the confirmed event layout before those two lines can be plotted without guessing.';
+      var totalLabel = logs.length + ' EVENT' + (logs.length === 1 ? '' : 'S') + ' SINCE DEPLOY';
+
+      if (!funded.length) {
+        S('gTotal', totalLabel);
+        S('gNote', 'No PrincipalFunded event yet, so the sNET Principal line has nothing before the live point above. ' + otherNote);
+        showMsg('NO PRINCIPAL FUNDING YET', 'chart fills in once the reserve is funded');
+        return;
+      }
+
+      // Block timestamps for the deploy anchor (0) and each funding block, batched in one request —
+      // never guessed, and the RPC's own timestamps are the only source used for the x-axis.
+      var blocks = [C.deployBlock].concat(funded.map(function (f) { return f.block; }));
+      var uniqBlocks = blocks.filter(function (b, i) { return blocks.indexOf(b) === i; });
+      CH.rpc(uniqBlocks.map(function (b) { return ['eth_getBlockByNumber', [CH.hexN(b), false]]; })).then(function (blks) {
+        var tsByBlock = {};
+        uniqBlocks.forEach(function (b, i) { tsByBlock[b] = Number(BigInt(blks[i].timestamp)); });
+        var pts = [{ t: tsByBlock[C.deployBlock], v: 0n }]; // a freshly deployed reserve holds nothing — a real fact, not an estimate
+        funded.forEach(function (f) { pts.push({ t: tsByBlock[f.block], v: f.value }); });
+        if (LIVE) pts.push({ t: LIVE.ts, v: LIVE.principal }); // extend to "now" with the same value shown in the live point above
+        drawPrincipalChart(svg, pts);
+        S('gTotal', totalLabel);
+        S('gNote', funded.length + ' funding event(s) plotted from PrincipalFunded’s own reported value. ' + otherNote);
+      }).catch(function (e) {
+        S('gTotal', 'UNAVAILABLE'); S('gNote', 'Could not read block times for the funding events: ' + esc(e.message || String(e)));
+        showMsg('COULD NOT READ EVENT LOG');
+      });
     }).catch(function (e) {
       S('gTotal', 'UNAVAILABLE'); S('gNote', 'Could not read the event log: ' + esc(e.message || String(e)));
       showMsg('COULD NOT READ EVENT LOG');
