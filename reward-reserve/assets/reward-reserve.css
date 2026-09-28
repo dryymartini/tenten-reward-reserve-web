@@ -166,3 +166,10 @@ table.lots.bsheet tr.total td{border-top:2px solid var(--ink);border-bottom:none
 /* visible checkpoint markers, so a flat (e.g. brand-new) line still reads as data, not empty grid */
 .gchart .pdot{fill:var(--ph);filter:drop-shadow(0 0 3px var(--ph-glow))}
 .gchart .rdot{fill:var(--lcd);stroke:var(--panel);stroke-width:2}
+
+/* growth chart: hover crosshair + tooltip, like the site's other growth chart */
+.gchart .xline{stroke:var(--ph-dim);stroke-width:1;stroke-dasharray:3 3}
+.gchart .hp{fill:var(--lcd);stroke:var(--ph);stroke-width:2}
+.gchart .hr{fill:var(--lcd);stroke:var(--panel);stroke-width:2}
+.gtip{position:absolute;top:10px;pointer-events:none;background:var(--lcd-2);border:1px solid var(--ph);color:var(--ph);font-family:var(--lcdf);font-size:15px;line-height:1.6;padding:8px 12px;white-space:nowrap;box-shadow:0 4px 14px rgba(0,0,0,.5);z-index:5;display:none}
+@media(max-width:520px){.gtip{font-size:13px;padding:6px 9px;white-space:normal;max-width:70%}}

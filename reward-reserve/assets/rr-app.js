@@ -387,6 +387,57 @@
     var last = pts[pts.length - 1];
     S('pgTotal', 'principal ' + sn(last.p) + ' · pot ' + sn(last.r) + (ST.head ? ' · block ' + num(ST.head.number) : ''));
     S('pgNote', 'Principal points come from each PrincipalFunded/NetProcessed event’s own new checkpoint value, plus the frozen 50/50 crystallization split applied to each ModeChanged event’s reported growth. The reward pot also subtracts epochs published and adds back cancellations. The last point is read live from the contract.' + (series.dropped ? ' ' + series.dropped + ' older event(s) have no timestamp yet and are not plotted.' : ''));
+    PG = { pts: pts, t0: t0, t1: t1, L: L, Rr: Rr, W: W, Hh: Hh, T: T, B: B, topV: topV };
+    bindPGHover();
+  }
+
+  // ------------------------------------------------------------ growth chart hover (crosshair + tooltip)
+  var PG = null, pgBound = false;
+  function pgX(t) { return PG.L + (t - PG.t0) / (PG.t1 - PG.t0) * (PG.W - PG.L - PG.Rr); }
+  function pgY(v) { return PG.T + (1 - Number(v * 10000n / PG.topV) / 10000) * (PG.Hh - PG.T - PG.B); }
+  function bindPGHover() {
+    var wrap = $('#pgChart'); if (!wrap || pgBound) return;
+    pgBound = true;
+    wrap.addEventListener('mousemove', pgMove);
+    wrap.addEventListener('mouseleave', function () { pgShowTip(null); });
+    wrap.addEventListener('touchstart', pgTouch, { passive: true });
+    wrap.addEventListener('touchmove', pgTouch, { passive: true });
+    wrap.addEventListener('touchend', function () { pgShowTip(null); });
+  }
+  function pgTouch(ev) { var t = ev.touches[0]; if (t) pgMove({ clientX: t.clientX }); }
+  function pgMove(ev) {
+    if (!PG || !PG.pts.length) return;
+    var wrap = $('#pgChart'); if (!wrap) return;
+    var rect = wrap.getBoundingClientRect();
+    var px = (ev.clientX - rect.left) / rect.width * PG.W;
+    var t = PG.t0 + (px - PG.L) / (PG.W - PG.L - PG.Rr) * (PG.t1 - PG.t0);
+    var nearest = PG.pts[0], best = Infinity;
+    PG.pts.forEach(function (pt) { var d = Math.abs(pt.t - t); if (d < best) { best = d; nearest = pt; } });
+    pgShowTip(nearest);
+  }
+  function pgShowTip(pt) {
+    var svg = $('#pgChart svg'), wrap = $('#pgChart'); if (!svg || !wrap) return;
+    var tip = $('#pgTip');
+    if (!pt) { var g0 = svg.querySelector('#pgHoverG'); if (g0) g0.style.display = 'none'; if (tip) tip.style.display = 'none'; return; }
+    var g = svg.querySelector('#pgHoverG');
+    if (!g) {
+      g = document.createElementNS('http://www.w3.org/2000/svg', 'g'); g.id = 'pgHoverG';
+      g.innerHTML = '<line class="xline"/><circle class="hp" r="5"/><circle class="hr" r="5"/>';
+      svg.appendChild(g);
+    }
+    g.style.display = '';
+    var x = pgX(pt.t), line = g.querySelector('line'), circles = g.querySelectorAll('circle');
+    line.setAttribute('x1', x); line.setAttribute('x2', x); line.setAttribute('y1', PG.T); line.setAttribute('y2', PG.Hh - PG.B);
+    circles[0].setAttribute('cx', x); circles[0].setAttribute('cy', pgY(pt.p));
+    circles[1].setAttribute('cx', x); circles[1].setAttribute('cy', pgY(pt.r));
+    if (!tip) { tip = document.createElement('div'); tip.id = 'pgTip'; tip.className = 'gtip'; wrap.appendChild(tip); }
+    var d = new Date(pt.t * 1000);
+    var dateStr = d.getUTCDate() + ' ' + ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getUTCMonth()] + ', ' + ('0' + d.getUTCHours()).slice(-2) + ':' + ('0' + d.getUTCMinutes()).slice(-2) + ' UTC';
+    tip.innerHTML = esc(dateStr) + '<br>permanent principal ' + esc(sn(pt.p)) + '<br>reward pot ' + esc(sn(pt.r));
+    var leftPct = x / PG.W * 100;
+    if (leftPct > 55) { tip.style.right = (100 - leftPct + 2) + '%'; tip.style.left = 'auto'; }
+    else { tip.style.left = (leftPct + 2) + '%'; tip.style.right = 'auto'; }
+    tip.style.display = 'block';
   }
 
   // ------------------------------------------------------------ organic rate history chart (indexer)
