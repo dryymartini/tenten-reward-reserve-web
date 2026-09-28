@@ -1,51 +1,38 @@
 /* ============================================================================
-   Reward Reserve V1 — production configuration (read-only page)
-   Addresses: TenTen Reward Reserve Website Spec (FINAL v2), section 3.
-   Every address below is re-checked at runtime against the Reward Reserve's
-   own immutables (TEN(), NET(), sNET(), staking(), priceReader()).
+   Reward Reserve V2 — configuration (Robinhood Chain TESTNET, fake funds)
+   All contract addresses, the chain RPC/explorer and the epoch JSON data
+   source live here so a future mainnet swap is a one-line change, never a
+   rewrite. See Matteo's 2026-09-28 spec for the source of every address.
    ========================================================================== */
 window.RR_CONFIG = Object.freeze({
-  chainId: 4663,
-  // Same public RPC and explorer the live /reserve/ page uses.
-  rpcUrl: 'https://rpc.mainnet.chain.robinhood.com',
-  explorer: 'https://robinhoodchain.blockscout.com',
+  network: 'testnet',
+  chainId: 46630,
+  chainIdHex: '0xb626',
+  chainName: 'Robinhood Chain Testnet',
+  rpcUrl: 'https://rpc.testnet.chain.robinhood.com',
+  // Not yet confirmed whether the explorer has verified the contract; leave
+  // requests to it best-effort (the page must still work if it 404s).
+  explorer: 'https://robinhoodchain-testnet.blockscout.com',
+  nativeCurrency: Object.freeze({ name: 'Robinhood Chain Testnet ETH', symbol: 'ETH', decimals: 18 }),
 
   addresses: Object.freeze({
-    rewardReserve: '0x313dfCB9E091D33482e75EEFa00E0156b42119b5',
-    spotReader:    '0x383a3da5f0df829e68893d1C5Cff728657ed6510',
-    ten:           '0xC4F021c73A5b6fFae6C43515f0a4BbF615B31c7b',
-    net:           '0xCA9c78Dd337A67F6e0077F65F5E9218719d30eDf',
-    snet:          '0xb773ec2C326B7f98a5a83fc098825492F020a4c7',
-    staking:       '0xB078cc304A0B264C5F3680DC0488954ACcd02E87',
-    operator:      '0x6ED716b1C351C355b736494704bD297Ec73e72F1'
+    rewardReserve: '0x481a383663CF8fAAb689294E59877E9f58898Ed1',
+    ten:           '0x6dFb394DbD23e6DF7b635E64a6eD1B98c629edC7',
+    net:           '0x593f58861d62e72962D1cDDFD6173db6740e38e5',
+    snet:          '0x138a749C3080E324c4F322c3C5FF1000721196D9',
+    staking:       '0x33Ec38f9dC6d45dAbB4Ed1d9068cACDD4Abd3F3C' // not used by this site
   }),
 
-  deployBlock: 73845148,          // Reward Reserve V1
-  spotReaderDeployBlock: 73845057,
-
-  pollMs: 60000,                  // same cadence as /reserve/
   requestTimeoutMs: 9000,
-  staleAfterSec: 180,             // chain head older than this => STALE
-  logChunk: 50000,                // fallback eth_getLogs window
-  maxLogChunks: 40,               // beyond this the log is reported UNAVAILABLE, never partial totals
-
-  // Known system addresses that never receive loyalty allocations (spec §7).
-  // The authoritative exclusion set lives in Indexer V1; this list only lets the
-  // page explain the obvious cases without the indexer.
-  knownSystem: Object.freeze({
-    '0x313dfcb9e091d33482e75eefa00e0156b42119b5': 'Reward Reserve V1 contract',
-    '0x4fc94fd08ff44abde7452bb109f1c5ab937ed4e3': 'Permanent Reserve contract'
-  }),
 
   /* --------------------------------------------------------------------------
-     Off-chain production data. NOT CONNECTED in this build.
-     These are filled in by the TenTen developer once the frozen Indexer V1 /
-     Automation / epoch-artifact publication endpoints are live. See
-     INTEGRATION.md → "Connecting production data". Leaving them null makes the
-     page show explicit UNAVAILABLE / VERIFICATION PENDING states.
+     Epoch data published by the off-chain Indexer (not part of this site).
+     Not hosted anywhere public yet — set `epochsBaseUrl` to the real location
+     once Matteo has it (e.g. an HTTPS URL serving epochs/<id>.json, or a path
+     under this same site). Left as a clear placeholder until then: the page
+     shows an explicit "epoch data source not configured" state rather than
+     guessing or fabricating a URL.
      ------------------------------------------------------------------------ */
-  offchain: Object.freeze({
-    indexer: null,     // adapter object implementing RR.providers.IndexerProvider
-    artifacts: null    // adapter object implementing RR.providers.ArtifactProvider
-  })
+  epochsBaseUrl: null, // e.g. 'https://indexer.example.com/epochs' -> fetches `${epochsBaseUrl}/${id}.json`
+  epochFile: function (id) { return this.epochsBaseUrl ? this.epochsBaseUrl.replace(/\/$/, '') + '/' + id + '.json' : null; }
 });

@@ -1,61 +1,67 @@
 # Integrating `/reward-reserve/` into tentencapital.net
 
-The folder `reward-reserve/` is a self-contained static page. No build step, no framework,
-no wallet library, no server code.
+The folder `reward-reserve/` is a self-contained static page. No build step, no framework —
+wallet connection is plain EIP-1193 (`window.ethereum`), compatible with MetaMask and most
+injected wallets, no SDK required.
 
 ## 1. Publish the page
 
 1. Copy the folder to the site root so it is served at `https://tentencapital.net/reward-reserve/`
    (`index.html` + `assets/`). Do **not** copy `tests/` or this file.
-2. All asset paths are relative. Absolute links used by the page: `/` (main site) and `/reserve/`
-   (Permanent Reserve). Keep those routes.
+2. All asset paths are relative. Absolute links used by the page: `/` (main site). Keep that route.
 3. If the site sends a Content-Security-Policy, allow:
-   - `connect-src https://rpc.mainnet.chain.robinhood.com https://robinhoodchain.blockscout.com`
+   - `connect-src https://rpc.testnet.chain.robinhood.com https://robinhoodchain-testnet.blockscout.com`
+     (swap to the mainnet hosts once `assets/rr-config.js` is switched to mainnet — see §2)
    - `img-src 'self' data:` (inline SVG favicon), `font-src 'self'`, `script-src 'self'`, `style-src 'self'`
-4. Add a menu link to `/reward-reserve/` from the main site and from `/reserve/`, if wanted.
-5. `assets/tenten-base.css`, `tenten-logo.webp`, the cursors and fonts are copies of the
-   `/reserve/` styling. If the main site already serves shared equivalents, the page can point at
-   them instead; otherwise leave the copies as they are.
+4. Add a menu link to `/reward-reserve/` from the main site, if wanted.
+5. `assets/tenten-base.css`, `tenten-logo.webp`, the cursors and fonts are copies of the main
+   site's styling. If the main site already serves shared equivalents, the page can point at them
+   instead; otherwise leave the copies as they are.
 
-## 2. What is live today (no configuration)
+## 2. Switching from testnet to mainnet
 
-Everything in `assets/rr-config.js` → `addresses` is read directly from Robinhood Chain (id 4663)
-through the public RPC, all values of one refresh pinned to the same block: mode, organic rate,
-the frozen accounting buckets, solvency, epochs, claim status, event log, holder TEN balance.
-The page only ever calls `eth_call`, `eth_blockNumber`, `eth_getBlockByNumber`, `eth_getLogs`,
-`eth_getCode` (enforced allow-list in `rr-chain.js`).
+Everything network- and contract-specific lives in `assets/rr-config.js`: `chainId`, `chainIdHex`,
+`chainName`, `rpcUrl`, `explorer`, `nativeCurrency` and `addresses`. Once the contract is deployed
+to Robinhood Chain mainnet, updating those fields to the mainnet values is the only code change
+needed — nothing else in the page hardcodes an address or a chain id.
 
-## 3. Connecting production data (Indexer V1 / epoch artifacts)
+## 3. Connecting the Indexer's epoch data
 
-Set the adapters in `assets/rr-config.js`:
+`assets/rr-config.js` → `epochsBaseUrl` is `null` until the Indexer has a public host. Once it
+does, set it to the base URL that serves `epochs/<id>.json` (e.g.
+`epochsBaseUrl: 'https://indexer.example.com/epochs'`) — the page fetches
+`${epochsBaseUrl}/${id}.json` for each epoch from 1 to `latestEpochId()`.
 
-```js
-offchain: Object.freeze({
-  indexer:   { getHolder(address), getRateHistory() },
-  artifacts: { getEpochArtifact(epochId), verifyDataRef(artifact, onchainDataRef), getHolderEpochs(address) /* optional */ }
-})
-```
+The exact JSON schema (`epochId`, `snapshotTime`, `chainId`, `reserve`, `budget.committedTotal`,
+`holders[addr].{balance,eligibleBalance,allocation,leaf,proof}`, `ineligible`, `tree.root`) is
+validated in `assets/rr-providers.js` (`validEpoch`) before any value from it is shown; a bad or
+unreachable file shows an explicit "not configured" / "failed validation" state, never fabricated
+numbers.
 
-The exact payload shapes (`rr-holder/1`, `rr-rate/1`, `rr-epoch/1`) are documented at the top of
-`assets/rr-providers.js`. Every payload is validated before use; a bad payload shows an error
-state, never partial numbers. The adapter decides the transport (static JSON, IPFS, an API);
-the page does not assume one.
+**The JSON is never trusted for the claim itself.** Before an allocation is shown as claimable,
+`rr-providers.js` re-checks it on chain: `claimedBy()` (already paid → shown as claimed) then
+`verifyAllocation()` (the contract's own Merkle check on the exact amount + proof from the JSON).
+Only then does the claim button send a transaction, and it always signs `claim(epochId, amount,
+proof)` — the same three values just verified — never anything the JSON alone asserted.
 
-`verifyDataRef` must prove the artifact **content** is what the on-chain `dataRef` commits to
-(per the frozen publication format). Until it returns `'match'`, the epoch stays in
-**VERIFICATION PENDING** and no claim parameters are shown.
+## 4. Wallet / claim flow
 
-Claim parameters are shown only when all of these pass for the holder:
-epoch id · root = on-chain root · committed total = on-chain · Σ allocations = committed total ·
-dataRef = on-chain dataRef · content bound to dataRef · `verifyAllocation()` = true ·
-`claim()` dry-run via `eth_call` from the holder address succeeds (read-only, never sent).
+- Connecting (`assets/rr-wallet.js`) only ever calls `eth_requestAccounts`, `eth_chainId`,
+  `wallet_switchEthereumChain` / `wallet_addEthereumChain` (to get the user onto Robinhood Chain
+  Testnet) and, on an explicit "Claim" click, `eth_sendTransaction` for `claim(...)`. It never
+  calls `eth_sign` / `personal_sign` / `eth_signTypedData_*`, never requests or stores a private
+  key, and never calls `approve()` on any token — `claim()` needs no allowance.
+- `assets/rr-chain.js` is read-only: its RPC allow-list is `eth_call`, `eth_blockNumber`,
+  `eth_getBlockByNumber`, `eth_getTransactionReceipt` only. It never sends a transaction; that is
+  `rr-wallet.js`'s job alone, and only against the connected wallet's own provider.
 
-## 4. Test locally
+## 5. Test locally
 
 ```sh
 cd reward-reserve && python3 -m http.server 8080   # then open http://localhost:8080/
 npm install && npm test                             # headless render + safety tests (from repo root)
 ```
 
-Tests replay a recorded mainnet snapshot and synthetic, clearly fake claim data. They never touch
-the production page.
+Tests run against a fully synthetic mock RPC and a mock EIP-1193 wallet (no real network, no real
+funds); they assert the claim flow never calls a signing method outside an explicit claim, never
+calls `approve()`, and that an epoch already claimed on chain is never shown as claimable again.
