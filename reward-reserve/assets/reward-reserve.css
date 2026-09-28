@@ -195,6 +195,13 @@ table.lots.bsheet tr.total td{border-top:2px solid var(--ink);border-bottom:none
 table.lots.light td.ok{color:var(--title);font-weight:700}
 table.lots.light td.bad{color:#9A2E2E}
 
+/* ---- $ estimates (spot price, illiquid pool — always "≈", never exact) - */
+.lcd .usd{font-size:14px;color:var(--ph-dim);text-shadow:none;letter-spacing:.02em;margin-top:1px;min-height:1em}
+.lcd .usd:empty{display:none}
+.kvv{display:grid;justify-items:end;gap:0;text-align:right}
+.kvv .usd{font-size:11px;letter-spacing:.06em;color:var(--ink-2);text-shadow:none}
+.kvv .usd:empty{display:none}
+
 /* ---- community donations --------------------------------------------- */
 .donaterow{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start;margin-top:4px}
 .donaterow .crow{flex:1 1 320px;min-width:0;border-bottom:none;padding:0}

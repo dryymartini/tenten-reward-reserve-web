@@ -24,6 +24,22 @@ window.RR_CONFIG = Object.freeze({
 
   requestTimeoutMs: 9000,
 
+  /* --------------------------------------------------------------------------
+     $ estimate sources (2026-09-28, per Matteo) — both on-chain, no external
+     API. TEN/NET spot price from the existing TenNetSpotReader (reused as-is
+     from V1); NET/USDG spot price from a standard Uniswap V2 pair's own
+     reserves. sNET is priced the same as NET (1:1 via unstake()), no separate
+     read. These are illiquid spot prices, shown as rough "≈ $" estimates only
+     — never treated as precise, and never shown at all if either read fails.
+     ------------------------------------------------------------------------ */
+  prices: Object.freeze({
+    tenNetSpotReader: '0x383a3da5f0df829e68893d1c5cff728657ed6510', // getSpotPriceWad() -> NET per TEN, 1e18 = 1.0
+    netUsdgPool: '0x59F95461E68e0c77605299791E1449f175165B54',      // Uniswap V2 pair, getReserves()
+    usdg: '0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168',            // pool token0, 6 decimals
+    usdgDecimals: 6,
+    netDecimals: 9 // pool token1 (NET) — order confirmed by Matteo, never inverted
+  }),
+
   // Mainnet deploy block is not yet known (Matteo's 2026-09-28 mainnet config didn't
   // include one) — left unset rather than reusing the old testnet approximation, which
   // would be wrong here. Until this is filled in, the Growth chart's eth_getLogs will

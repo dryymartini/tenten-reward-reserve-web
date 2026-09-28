@@ -29,8 +29,8 @@
       <p class="sub">Hold TEN 30+ days · claim your weekly sNET share · Robinhood Chain mainnet<br><code data-l="rAddr">REWARD RESERVE --</code></p>
     </div>
     <div class="lcds" data-mod="chain">
-      <div class="lcd in"><div class="k">sNET in the Reserve</div><div class="v" data-l="mon_snet">--</div><div class="s">sNET.balanceOf(reserve)</div></div>
-      <div class="lcd in"><div class="k">TEN in the Reserve</div><div class="v" data-l="mon_ten">--</div><div class="s">TEN.balanceOf(reserve)</div></div>
+      <div class="lcd in"><div class="k">sNET in the Reserve</div><div class="v" data-l="mon_snet">--</div><div class="s">sNET.balanceOf(reserve)</div><div class="usd" data-l="mon_snet_usd"></div></div>
+      <div class="lcd in"><div class="k">TEN in the Reserve</div><div class="v" data-l="mon_ten">--</div><div class="s">TEN.balanceOf(reserve)</div><div class="usd" data-l="mon_ten_usd"></div></div>
       <div class="lcd in"><div class="k">Next distribution</div><div class="v" data-l="mon_countdown">--</div><div class="s" data-l="mon_countdownSub">lastCrystallization() + CRYSTALLIZATION_PERIOD()</div></div>
     </div>
     <div class="walletbar" id="walletbar">
@@ -58,12 +58,13 @@
         <div class="lcd in gauge">
           <div class="k">Principal value</div>
           <div class="v" data-l="ov_principal">--</div>
+          <div class="usd" data-l="ov_principal_usd"></div>
           <div class="s">Read with <code>principalValue()</code>. Half of everything this generates compounds back in automatically.</div>
         </div>
         <div class="side">
           <div class="kv">
-            <div><span>Holder-side value · not yet assigned</span><b data-l="ov_holderside">--</b></div>
-            <div><span>Allocated / unclaimed</span><b data-l="ov_liab">--</b></div>
+            <div><span>Holder-side value · not yet assigned</span><span class="kvv"><b data-l="ov_holderside">--</b><small class="usd" data-l="ov_holderside_usd"></small></span></div>
+            <div><span>Allocated / unclaimed</span><span class="kvv"><b data-l="ov_liab">--</b><small class="usd" data-l="ov_liab_usd"></small></span></div>
             <div><span>Solvency · isSolvent()</span><b data-l="ov_solvent">--</b></div>
             <div><span>Latest epoch published</span><b data-l="ov_latestEpoch">--</b></div>
             <div><span>Eligible wallets · latest epoch</span><b data-l="ov_holders">--</b></div>
@@ -126,10 +127,10 @@
 
       <div id="meOut" class="meout" hidden>
         <div class="lcds trk-lcds">
-          <div class="lcd in"><div class="k">TEN balance</div><div class="v" data-l="m_bal">--</div><div class="s">on chain · TEN.balanceOf</div></div>
-          <div class="lcd in"><div class="k">Eligible TEN</div><div class="v" data-l="m_elig">--</div><div class="s" data-l="m_eligSub">latest published epoch</div></div>
-          <div class="lcd in"><div class="k">To claim</div><div class="v" data-l="m_toClaim">--</div><div class="s">verified against the contract</div></div>
-          <div class="lcd in"><div class="k">Claimed</div><div class="v" data-l="m_claimed">--</div><div class="s">sum of claimed epochs</div></div>
+          <div class="lcd in"><div class="k">TEN balance</div><div class="v" data-l="m_bal">--</div><div class="s">on chain · TEN.balanceOf</div><div class="usd" data-l="m_bal_usd"></div></div>
+          <div class="lcd in"><div class="k">Eligible TEN</div><div class="v" data-l="m_elig">--</div><div class="s" data-l="m_eligSub">latest published epoch</div><div class="usd" data-l="m_elig_usd"></div></div>
+          <div class="lcd in"><div class="k">To claim</div><div class="v" data-l="m_toClaim">--</div><div class="s">verified against the contract</div><div class="usd" data-l="m_toClaim_usd"></div></div>
+          <div class="lcd in"><div class="k">Claimed</div><div class="v" data-l="m_claimed">--</div><div class="s">sum of claimed epochs</div><div class="usd" data-l="m_claimed_usd"></div></div>
         </div>
 
         <div class="kv" id="eligDetail" style="margin-top:6px">

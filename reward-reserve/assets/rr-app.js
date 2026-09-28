@@ -21,6 +21,21 @@
   var DEC = { ten: 18, snet: 9 };
   function sn(v) { return CH.amt(v, DEC.snet, 'sNET'); }
   function tn(v) { return CH.amt(v, DEC.ten, 'TEN'); }
+
+  // $ estimates: spot prices from two on-chain reads (TenNetSpotReader + a Uniswap V2 pair),
+  // combined in refreshPrices() below. PRICE stays null until both reads succeed, and every
+  // usdLabel() call returns '' (never a guessed number) until then — matches the rest of the
+  // site's "never fabricate, show nothing instead" rule.
+  var PRICE = null; // { ten: usd per 1 TEN, net: usd per 1 NET (== per 1 sNET) } | null
+  function usdLabel(v, dec, key) {
+    if (!PRICE || v == null) return '';
+    var price = PRICE[key]; if (!(price > 0)) return '';
+    var human = Number(v) / Math.pow(10, dec);
+    var usd = human * price;
+    if (usd > 0 && usd < 0.01) return '≈ <$0.01';
+    var frac = usd < 1000 ? 2 : 0;
+    return '≈ $' + usd.toLocaleString('en-US', { minimumFractionDigits: frac, maximumFractionDigits: frac });
+  }
   function badge(keys, text, bad) { keys.forEach(function (k) { $$('[data-l="' + k + '"]').forEach(function (e) { e.textContent = text; e.classList.toggle('bad', !!bad); }); }); }
   function alertBox(k, html, info) { $$('[data-l-alert="' + k + '"]').forEach(function (e) { e.hidden = !html; e.innerHTML = html || ''; e.classList.toggle('info', !!info); }); }
   function link(path, label) { return EXPL ? '<a href="' + EXPL + path + '" target="_blank" rel="noopener">' + esc(label) + '</a>' : esc(label); }
@@ -104,13 +119,33 @@
         CH.ethCall(R, CH.SEL.lastCrystallization, tag), CH.ethCall(R, CH.SEL.crystallizationPeriod, tag),
         CH.ethCall(A.snet, CH.encBalanceOf(R), tag), CH.ethCall(A.ten, CH.encBalanceOf(R), tag)
       ];
-      return CH.rpc(calls).then(function (r) {
-        S('ov_principal', sn(CH.u(r[0], 0))); S('ov_holderside', sn(CH.u(r[1], 0))); S('ov_liab', sn(CH.u(r[2], 0)));
+      // $ estimates fetched separately (rpcSettled, not the strict batch above): a revert or
+      // missing contract on either price read must never take down the reserve's own numbers,
+      // and settling independently means one failing read still lets PRICE stay null cleanly.
+      var priceCalls = [CH.ethCall(C.prices.tenNetSpotReader, CH.SEL.getSpotPriceWad, tag), CH.ethCall(C.prices.netUsdgPool, CH.SEL.getReserves, tag)];
+      var priceP = CH.rpcSettled(priceCalls).then(function (rs) {
+        try {
+          if (!rs[0].ok || !rs[1].ok) throw new Error('price read failed');
+          var netPerTen = Number(CH.u(rs[0].result, 0)) / 1e18;
+          var usdgReserve = CH.u(rs[1].result, 0), netReserve = CH.u(rs[1].result, 1);
+          var usdgPerNet = (Number(usdgReserve) / Math.pow(10, C.prices.usdgDecimals)) / (Number(netReserve) / Math.pow(10, C.prices.netDecimals));
+          PRICE = (netPerTen > 0 && usdgPerNet > 0) ? { ten: netPerTen * usdgPerNet, net: usdgPerNet } : null;
+        } catch (e) { PRICE = null; }
+      });
+      return Promise.all([CH.rpc(calls), priceP]).then(function (results) {
+        var r = results[0];
+        var principal = CH.u(r[0], 0), holderside = CH.u(r[1], 0), liab = CH.u(r[2], 0);
+        S('ov_principal', sn(principal)); S('ov_holderside', sn(holderside)); S('ov_liab', sn(liab));
         S('ov_solvent', CH.boolAt(r[3], 0) ? 'SOLVENT' : 'INSOLVENT');
         var latestId = Number(CH.u(r[4], 0));
         S('ov_latestEpoch', num(latestId));
         S('ov_block', num(head.number));
-        S('mon_snet', sn(CH.u(r[7], 0))); S('mon_ten', tn(CH.u(r[8], 0)));
+        var snetInReserve = CH.u(r[7], 0), tenInReserve = CH.u(r[8], 0);
+        S('mon_snet', sn(snetInReserve)); S('mon_ten', tn(tenInReserve));
+
+        // sNET is priced the same as NET (1:1 via unstake()), no separate read needed.
+        S('mon_snet_usd', usdLabel(snetInReserve, DEC.snet, 'net')); S('mon_ten_usd', usdLabel(tenInReserve, DEC.ten, 'ten'));
+        S('ov_principal_usd', usdLabel(principal, DEC.snet, 'net')); S('ov_holderside_usd', usdLabel(holderside, DEC.snet, 'net')); S('ov_liab_usd', usdLabel(liab, DEC.snet, 'net'));
 
         var lastCryst = CH.u(r[5], 0), period = CH.u(r[6], 0);
         if (lastCryst === 0n) {
@@ -244,9 +279,10 @@
 
     Promise.all([latestP, balP]).then(function (r) {
       var latest = Number(BigInt(r[0])), bal = CH.u(r[1], 0);
-      S('m_bal', tn(bal));
+      S('m_bal', tn(bal)); S('m_bal_usd', usdLabel(bal, DEC.ten, 'ten'));
       if (!latest) {
         S('m_elig', '0 TEN'); S('m_toClaim', '0 sNET'); S('m_claimed', '0 sNET');
+        S('m_elig_usd', ''); S('m_toClaim_usd', ''); S('m_claimed_usd', '');
         S('m_eligYn', '—'); S('m_age', '—'); S('m_daysToElig', '—'); S('m_share', '—');
         epochRows.innerHTML = '<tr><td colspan="4">no epoch published yet</td></tr>';
         LAST = { address: address, ready: [] };
@@ -303,7 +339,7 @@
     var rows = ids.map(function (id, i) { return { id: id, epoch: epochs[i] }; });
     var latestOk = rows[0] && rows[0].epoch.status === 'ok' ? rows[0].epoch.data : null;
     var elig = latestOk ? (P.findAddr(latestOk.holders, address) || {}).eligibleBalance : null;
-    S('m_elig', elig != null ? tn(elig) : '0 TEN');
+    S('m_elig', elig != null ? tn(elig) : '0 TEN'); S('m_elig_usd', elig != null ? usdLabel(elig, DEC.ten, 'ten') : '');
     S('m_eligSub', latestOk ? 'epoch ' + latestOk.epochId : 'no published epoch to read from');
     renderEligibilityDetail(latestOk, address);
 
@@ -331,6 +367,7 @@
       }).join('');
       epochRows.innerHTML = html || '<tr><td colspan="4">no allocation found for this address</td></tr>';
       S('m_toClaim', sn(toClaim)); S('m_claimed', sn(claimed));
+      S('m_toClaim_usd', usdLabel(toClaim, DEC.snet, 'net')); S('m_claimed_usd', usdLabel(claimed, DEC.snet, 'net'));
       LAST = { address: address, ready: ready };
       var mine = W.snapshot().address && W.snapshot().address.toLowerCase() === address.toLowerCase();
       claimBtn.disabled = !mine || !ready.length;

@@ -30,6 +30,8 @@ fs.mkdirSync(OUT, { recursive: true });
 const R = '0xc05ddfbd4f9a46ae297b286d4d6998a0c0ea27fe';
 const TEN = '0xc4f021c73a5b6ffae6c43515f0a4bbf615b31c7b';
 const SNET = '0xb773ec2c326b7f98a5a83fc098825492f020a4c7';
+const PRICE_READER = '0x383a3da5f0df829e68893d1c5cff728657ed6510';
+const NET_USDG_POOL = '0x59f95461e68e0c77605299791e1449f175165b54';
 const HOLDER = '0x784a7839a555773a57eee471b9cf9e076f2287e4'; // matches the fixture epoch JSON below
 const OTHER = '0x000000000000000000000000000000000000be01';
 
@@ -87,6 +89,15 @@ function makeRpc(opts) {
       }
       if (to === TEN && sel === '0x70a08231') return w(opts.tenBalance ?? '990000000000000000000000'); // balanceOf
       if (to === SNET && sel === '0x70a08231') return w(opts.snetBalance ?? '250000000000'); // balanceOf
+      if (to === PRICE_READER && sel === '0x55a4ef5f') { // getSpotPriceWad()
+        if (opts.priceFail) throw { code: -32000, message: 'execution reverted (mocked price read failure)' };
+        return w(opts.netPerTenWad ?? '353000000000'); // default matches Matteo's worked example
+      }
+      if (to === NET_USDG_POOL && sel === '0x0902f1ac') { // getReserves()
+        if (opts.priceFail) throw { code: -32000, message: 'execution reverted (mocked price read failure)' };
+        // defaults reproduce Matteo's worked example: ~448.7 USDG per NET, giving ~$0.0001584 per TEN
+        return w(opts.usdgReserve ?? '448700000') + w(opts.netReserve ?? '1000000000').slice(2) + w(0).slice(2);
+      }
       throw { code: -32000, message: 'execution reverted (no fixture for ' + sel + ')' };
     }
     throw { code: -32601, message: 'method not allowed in test: ' + method };
@@ -176,7 +187,12 @@ async function scenario(name, { rpc, wallet, epochsBaseUrl, autoConnect = true, 
     eligYn: document.querySelector('[data-l="m_eligYn"]') ? document.querySelector('[data-l="m_eligYn"]').textContent : null,
     share: document.querySelector('[data-l="m_share"]') ? document.querySelector('[data-l="m_share"]').textContent : null,
     lotList: document.querySelector('#lotList') ? document.querySelector('#lotList').innerText : null,
-    donateAddr: document.querySelector('#donateBox code') ? document.querySelector('#donateBox code').textContent : null
+    donateAddr: document.querySelector('#donateBox code') ? document.querySelector('#donateBox code').textContent : null,
+    monSnetUsd: document.querySelector('[data-l="mon_snet_usd"]').textContent,
+    monTenUsd: document.querySelector('[data-l="mon_ten_usd"]').textContent,
+    ovPrincipalUsd: document.querySelector('[data-l="ov_principal_usd"]').textContent,
+    mBalUsd: document.querySelector('[data-l="m_bal_usd"]') ? document.querySelector('[data-l="m_bal_usd"]').textContent : null,
+    mToClaimUsd: document.querySelector('[data-l="m_toClaim_usd"]') ? document.querySelector('[data-l="m_toClaim_usd"]').textContent : null
   }));
   const shot = path.join(OUT, `${name}.png`);
   await page.screenshot({ path: shot, fullPage: true });
@@ -223,6 +239,10 @@ await scenario('countdown-overdue', { rpc: makeRpc({ latestEpochId: 0, lastCryst
   const logs = [{ topics: [T[0]], data: '0x' }, { topics: [T[1]], data: '0x' }, { topics: [T[2]], data: '0x' }, { topics: [T[2]], data: '0x' }];
   await scenario('growth-events', { rpc: makeRpc({ latestEpochId: 0, logs }), wallet: null, addr: null });
 }
+
+// $ estimates: one of the two on-chain price reads reverts -> must show nothing ($ labels
+// stay blank), never a guessed or partial number
+await scenario('price-fail', { rpc: makeRpc({ latestEpochId: 0, priceFail: true }), wallet: null, addr: null });
 
 await browser.close(); server.close();
 fs.writeFileSync(path.join(OUT, 'results.json'), JSON.stringify(results, null, 1));
@@ -283,6 +303,16 @@ if (!/yes/i.test(withLots.eligYn || '')) bad.push('claim-ready: eligibility shou
 if (withLots.share !== '100.00%') bad.push('claim-ready: share should read 100.00% for the fixture\'s shareBps of 10000, got: ' + withLots.share);
 if (!/lot 1/i.test(withLots.lotList || '')) bad.push('claim-ready: lot list did not render the fixture\'s single TEN lot');
 if (withLots.ovHolders === '—' || withLots.ovEligTotal === '—') bad.push('claim-ready: overview general stats (eligible holders/TEN) should populate from the latest epoch\'s totals');
+
+// ---- $ estimates: render from the two mocked on-chain price reads by default, and show
+// nothing at all (never a guessed/partial number) when either read fails
+for (const r of results.filter(r => r.name !== 'price-fail')) {
+  if (!/^≈/.test(r.monSnetUsd) || !/^≈/.test(r.monTenUsd)) bad.push(r.name + ': $ estimate did not render for the reserve monitor boxes (monSnetUsd=' + r.monSnetUsd + ', monTenUsd=' + r.monTenUsd + ')');
+}
+if (!/^≈/.test(withLots.mBalUsd || '')) bad.push('claim-ready: $ estimate did not render for the TEN balance box');
+if (!/^≈/.test(withLots.mToClaimUsd || '')) bad.push('claim-ready: $ estimate did not render for the claimable amount box');
+const priceFail = results.find(r => r.name === 'price-fail');
+if (priceFail.monSnetUsd || priceFail.monTenUsd || priceFail.ovPrincipalUsd) bad.push('price-fail: a failed price read must leave $ labels blank, not show a partial/guessed number');
 
 if (bad.length) { console.log('\nISSUES:'); bad.forEach(x => console.log(' -', x)); process.exitCode = 1; }
 else console.log('\nAll checks passed.');

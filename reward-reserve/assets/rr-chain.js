@@ -11,7 +11,8 @@
    and CRYSTALLIZATION_PERIOD() are new to V2. Event topics (TOPICS below) were
    supplied directly and are used as given — this module has no way to recompute
    a topic0 without the exact event parameter types, only to check a selector,
-   which has none of that ambiguity.
+   which has none of that ambiguity. getSpotPriceWad()/getReserves() (2026-09-28,
+   for $ estimates) are likewise self-verified selectors.
    ========================================================================== */
 (function () {
   'use strict';
@@ -35,7 +36,12 @@
                                           // Matteo gave matches CRYSTALLIZATION_PERIOD(), not a
                                           // camelCase crystallizationPeriod())
     // ERC-20 (TEN / sNET)
-    balanceOf: '0x70a08231'
+    balanceOf: '0x70a08231',
+
+    // Spot price sources (both self-verified via offline keccak256 against the sanity-checked
+    // balanceOf(address) selector, so trusted the same way as everything else in this file):
+    getSpotPriceWad: '0x55a4ef5f', // TenNetSpotReader.getSpotPriceWad() -> uint256 (WAD: 1e18 = 1 NET per TEN)
+    getReserves: '0x0902f1ac'      // Uniswap V2 pair getReserves() -> (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast)
   };
 
   var TOPICS = {
