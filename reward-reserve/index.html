@@ -30,7 +30,7 @@
     <div class="lcds" data-mod="chain">
       <div class="lcd in"><div class="k">Current mode</div><div class="v" data-l="modeBig">--</div><div class="s" data-l="modeSub">status only · set by the contract</div></div>
       <div class="lcd in"><div class="k">Organic rate · 7D</div><div class="v" data-l="rateBig">--</div><div class="s">threshold 10% · realized, not a promise</div></div>
-      <div class="lcd in"><div class="k">Reward pot</div><div class="v" data-l="potBig">--</div><div class="s">up to 10% per epoch in Reward Mode</div></div>
+      <div class="lcd in"><div class="k">Reward pot</div><div class="v" data-l="potBig">--</div><div class="s">10% of the remaining pot per 24h epoch in Reward Mode</div></div>
     </div>
   </header>
 
@@ -93,7 +93,7 @@
         <li><b>Productive growth</b><span>the principal grows as sNET rebases</span></li>
         <li class="split"><b>50/50 crystallization</b><span>at the start of a Reward cycle</span></li>
         <li><b>Reward pot</b><span>the 50% that leaves principal</span></li>
-        <li class="last"><b>Holder allocations</b><span>up to 10% of the pot per 24h epoch</span></li>
+        <li class="last"><b>Holder allocations</b><span>10% of the remaining pot per 24h epoch</span></li>
       </ol>
 
       <div class="two">
@@ -110,7 +110,7 @@
       <div class="list" style="margin-top:14px">
         <div class="item"><div class="ic">01</div><div><b>Compound Mode · rate at or above 10%</b><span>PAR is paying well. Nothing is allocated. The principal keeps compounding and its growth waits, uncrystallized.</span></div></div>
         <div class="item"><div class="ic">02</div><div><b>Entering Reward Mode · rate below 10%</b><span>The growth since the last checkpoint is crystallized: <em>50%</em> stays in principal, <em>50%</em> moves to the Reward Pot.</span></div></div>
-        <div class="item"><div class="ic">03</div><div><b>Reward Mode · one epoch per 24h</b><span>Each epoch commits up to <em>10%</em> of the live pot to eligible holders, published as a Merkle root on chain.</span></div></div>
+        <div class="item"><div class="ic">03</div><div><b>Reward Mode · one epoch per 24h</b><span>Each eligible 24-hour period allocates <em>10%</em> of the remaining live pot to eligible holders, published as a Merkle root on chain.</span></div></div>
         <div class="item"><div class="ic">04</div><div><b>Back to Compound</b><span>When organic rewards recover, new allocations stop. The rest of the pot waits for the next Reward Mode. What was already allocated stays claimable, even if you sold.</span></div></div>
       </div>
       <p class="intro" style="margin-top:14px">Why two modes: when PAR pays little, the reserve pays holders from what its principal earned. When PAR pays well, the reserve keeps building the base that produces the next rewards. A 24-hour minimum dwell keeps it from flapping.</p>
@@ -209,7 +209,7 @@
         <div class="lcds trk-lcds">
           <div class="lcd in"><div class="k">TEN balance</div><div class="v" data-l="h_bal">--</div><div class="s">on chain · TEN.balanceOf</div></div>
           <div class="lcd in"><div class="k">Eligible TEN</div><div class="v" data-l="h_elig">--</div><div class="s" data-l="h_eligSub">indexer V1</div></div>
-          <div class="lcd in"><div class="k">Claimable now</div><div class="v" data-l="h_claimable">--</div><div class="s" data-l="h_claimableSub">verified epoch artifacts</div></div>
+          <div class="lcd in"><div class="k">Claimable rewards</div><div class="v" data-l="h_claimable">--</div><div class="s" data-l="h_claimableSub">verified epoch artifacts</div></div>
         </div>
         <div class="lcd in report hist">
           <div class="head"><span data-l="h_title">HOLDER</span><span data-l="h_status">--</span></div>
@@ -247,7 +247,7 @@
       <div class="howto in">
         <div class="k">How to claim</div>
         <ol>
-          <li>Check your address above and confirm that <b>CLAIMABLE NOW</b> is greater than zero and the epoch shows <b>VERIFIED</b>.</li>
+          <li>Check your address above and confirm that <b>CLAIMABLE REWARDS</b> is greater than zero and the epoch shows <b>VERIFIED</b>.</li>
           <li>Click <b>CLAIM ON BLOCKSCOUT</b>.</li>
           <li>On Blockscout, open the verified Reward Reserve contract's <b>Write</b> tab (Contract → Write).</li>
           <li>Connect the wallet that owns this reward entitlement. The claim pays <code>msg.sender</code>: it only works from the address you checked.</li>
@@ -302,7 +302,7 @@
         <div><span>Mode changes · epochs published · claims</span><b data-l="L_counts">--</b></div>
       </div>
       <p class="st"><b data-l="badge5">LOADING</b> <span data-l="launchNote">--</span></p>
-      <p class="warn">Organic PAR rewards are an operator attestation (reportOrganicInflow), hard-capped on chain by the reserve's real balance increase. Crystallization split is derived from each ModeChanged event exactly as the contract does it: half the growth (rounded down) to the pot, the rest stays principal. Uncrystallized growth is not included until it is crystallized.</p>
+      <p class="warn">Organic PAR rewards are an operator attestation (reportOrganicInflow), hard-capped on chain by the reserve's real balance increase. Crystallized growth is the sum of the growth reported by each ModeChanged event. Its split between principal and Reward Pot is not emitted by the contract, so it is shown only from the production indexer, never re-derived by this page. Uncrystallized growth is not included until it is crystallized.</p>
     </div>
   </section>
 

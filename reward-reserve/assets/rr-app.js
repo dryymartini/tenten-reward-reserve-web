@@ -152,14 +152,14 @@
     S('modeBig', modeName);
     S('modeSub', r.lastModeTransitionAt ? 'since ' + utc(r.lastModeTransitionAt).slice(0, -10) + ' · status only' : 'no change since deployment · status only');
     S('potBig', sn(r.pot));
-    var rateTxt = expN === 0 ? 'N/A' : pctWad(r.rateWad);
+    var rateTxt = pctWad(r.rateWad); // contract value as-is (spec §6): no frontend reinterpretation
     S('rateBig', rateTxt);
 
     // overview
     S('modeFull', modeName + ' MODE');
     S('modeWhy', r.mode === 1 ? 'the realized organic rate fell below 10%: holders receive allocations from the Reward Pot' : 'organic rewards are strong enough: the principal compounds, nothing is allocated');
     var bar = Math.max(0, Math.min(100, Number(BigInt(r.rateWad) * 10000n / (2n * 10n ** 17n)) / 100));
-    ['rateBar', 'rateBar2'].forEach(function (id) { var e = document.getElementById(id); if (e) e.style.width = (expN === 0 ? 0 : bar) + '%'; });
+    ['rateBar', 'rateBar2'].forEach(function (id) { var e = document.getElementById(id); if (e) e.style.width = bar + '%'; });
     S('rateLbl', 'rate ' + rateTxt);
     S('tenLocked', tn(r.tenLocked));
     S('ppv', acctBad && yieldV < 0n ? '--' : sn(r.ppv));
@@ -181,8 +181,8 @@
     alertBox('engine', acctBad ? '<b>ACCOUNTING WARNING</b><br>' + warns.map(esc).join('<br>') : '');
 
     // rate
-    S('rateFull', expN === 0 ? 'N/A' : pctWad(r.rateWad));
-    S('rateNote', expN === 0 ? 'no TEN exposure checkpoint in the 7-day window yet: the rate is undefined and the mode cannot change' : (BigInt(r.rateWad) === 0n ? 'no organic reward counted in the window: 0% is a real reading' : 'annualizedOrganicRewardRateWad() · read at block ' + num(ST.head.number)));
+    S('rateFull', pctWad(r.rateWad));
+    S('rateNote', BigInt(r.rateWad) === 0n ? 'no organic PAR reward observed in the 7-day window: 0% is the contract reading, not an estimate' + (expN === 0 ? ' · no TEN exposure checkpoint in the window yet' : '') : 'annualizedOrganicRewardRateWad() · read at block ' + num(ST.head.number));
     S('rateMode', modeName);
     S('lastChange', r.lastModeTransitionAt ? utc(r.lastModeTransitionAt) : 'none since deployment');
     var next = r.lastModeTransitionAt + r.minDwell;
@@ -300,7 +300,7 @@
       var d = describe(e);
       return '<li><span>' + esc(e.ts ? ago(e.ts) : 'block ' + num(e.block)) + '</span><span class="d"></span><span>' + esc(d[0]) + '</span><span class="r">' + esc(d[1]) + ' · <a href="' + EXPL + '/tx/' + e.tx + '" target="_blank" rel="noopener">tx ↗</a></span></li>';
     }).join('') : '<li>no events yet</li>';
-    S('actStatus', num(evs.length) + ' EVENTS · SINCE BLOCK ' + num(C.deployBlock));
+    S('actStatus', num(evs.length) + ' EVENTS · BLOCKS ' + num(C.deployBlock) + '–' + num(L.head) + ' · ' + hhmmss(new Date(L.at)));
 
     // since launch (flows) — complete log only
     var sum = function (name, k) { return evs.filter(function (e) { return e.name === name; }).reduce(function (s, e) { return s + e[k]; }, 0n); };
@@ -310,7 +310,7 @@
       var c = evs.some(function (x) { return x.name === 'EpochCancelled' && x.epochId === p.epochId && (x.block > p.block || (x.block === p.block && x.idx > p.idx)) && !evs.some(function (y) { return y.name === 'EpochPublished' && y.epochId === p.epochId && (y.block > p.block || (y.block === p.block && y.idx > p.idx)) && (y.block < x.block || (y.block === x.block && y.idx < x.idx)); }); });
       if (!c) alloc += p.committedTotal;
     });
-    var growth = 0n, toPot = 0n; evs.forEach(function (e) { if (e.name === 'ModeChanged' && e.growth > 0n) { growth += e.growth; toPot += e.growth / 2n; } });
+    var growth = 0n; evs.forEach(function (e) { if (e.name === 'ModeChanged' && e.growth > 0n) growth += e.growth; });
     var n = function (name) { return evs.filter(function (e) { return e.name === name; }).length; };
     if (ST.r) S('L_ten', tn(ST.r.tenLocked));
     S('L_parNet', nt(sum('OrganicInflowReported', 'net')));
@@ -318,7 +318,8 @@
     S('L_netProc', nt(sum('NetProcessed', 'net')));
     S('L_princNet', sn(sum('NetProcessed', 'credited')));
     S('L_princFund', sn(sum('PrincipalFunded', 'amount')));
-    S('L_growth', sn(growth)); S('L_toPrinc', sn(growth - toPot)); S('L_toPot', sn(toPot));
+    // split to principal / pot is not emitted on chain: Indexer V1 data only (spec §10), never re-derived here
+    S('L_growth', sn(growth)); S('L_toPrinc', 'awaiting Indexer V1'); S('L_toPot', 'awaiting Indexer V1');
     S('L_alloc', sn(alloc));
     S('L_claimed', sn(sum('AllocationClaimed', 'amount')) + ' / ' + sn(sum('AllocationClaimed', 'payout')));
     S('L_counts', n('ModeChanged') + ' · ' + n('EpochPublished') + ' · ' + n('AllocationClaimed'));
@@ -553,7 +554,7 @@
   });
   setInterval(function () { refreshChain(); }, C.pollMs);
   setInterval(function () { refreshLogs(); }, C.pollMs * 2);
-  setInterval(function () { if (ST.r) { var f = freshness(); badge(['badge', 'badge2', 'badge3', 'badge6'], f.label, f.bad); modState('chain', f.live && !ST.acctBad); } }, 15000);
+  setInterval(function () { if (ST.r) { var f = freshness(); badge(['badge', 'badge2', 'badge3', 'badge6'], f.label, f.bad); modState('chain', f.live && !ST.acctBad); if (ST.logs && !f.live) { badge(['badge4', 'badge5'], f.label, true); modState('logs', false); } } }, 15000);
 
   window.RR.app = { state: ST, refreshChain: refreshChain, refreshLogs: refreshLogs, lookup: lookup };
 })();
