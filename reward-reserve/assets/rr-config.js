@@ -54,5 +54,16 @@ window.RR_CONFIG = Object.freeze({
      guessing or fabricating a URL.
      ------------------------------------------------------------------------ */
   epochsBaseUrl: null, // e.g. 'https://indexer.example.com/epochs' -> fetches `${epochsBaseUrl}/${id}.json`
-  epochFile: function (id) { return this.epochsBaseUrl ? this.epochsBaseUrl.replace(/\/$/, '') + '/' + id + '.json' : null; }
+  epochFile: function (id) { return this.epochsBaseUrl ? this.epochsBaseUrl.replace(/\/$/, '') + '/' + id + '.json' : null; },
+
+  /* --------------------------------------------------------------------------
+     Real-holding eligibility feed (2026-09-29, per Matteo) — a SEPARATE, public,
+     unauthenticated static JSON, regenerated periodically at this same URL. It
+     answers "is this wallet eligible / how many days left" from real on-chain
+     holding history, independently of epochsBaseUrl above — available now, well
+     before the first crystallize()/publishEpoch() (expected 2026-10-05). It has
+     nothing to do with claims or Merkle proofs; those still come only from a
+     real published epoch, once one exists.
+     ------------------------------------------------------------------------ */
+  eligibilityUrl: 'https://raw.githubusercontent.com/dryymartini/tenten-reward-reserve-data/main/eligibility.json'
 });

@@ -69,6 +69,37 @@
       }, function (e) { return { status: 'unavailable', reason: 'epoch ' + epochId + ' fetch failed: ' + (e && e.message || e) }; }));
   }
 
+  /**
+   * eligibility.json (2026-09-29, per Matteo) — a separate, independent feed answering "is this
+   * wallet eligible / how many days left" from real holding history, available well before the
+   * first epoch is ever published. Same fetch/cache/never-fabricate shape as getEpoch() above, but
+   * it has no epochId, chainId or reserve address to cross-check against (the schema doesn't carry
+   * them), so validation here is limited to the fields the schema actually promises.
+   */
+  var eligCache = null;
+  function validEligibility(d) {
+    var e = [];
+    if (!d || typeof d !== 'object') return ['not an object'];
+    if (!(Number(d.snapshotTime) > 0)) e.push('snapshotTime');
+    if (d.eligibility != null && !(Number(d.eligibility.minDays) > 0)) e.push('eligibility.minDays');
+    if (d.holders != null && typeof d.holders !== 'object') e.push('holders');
+    if (d.ineligible != null && typeof d.ineligible !== 'object') e.push('ineligible');
+    return e;
+  }
+  function getEligibility() {
+    if (eligCache) return eligCache;
+    var url = C.eligibilityUrl;
+    if (!url) return (eligCache = Promise.resolve({ status: 'unavailable', reason: 'eligibility data source is not configured yet (RR_CONFIG.eligibilityUrl)' }));
+    var ctl = typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? AbortSignal.timeout(C.requestTimeoutMs) : undefined;
+    return (eligCache = fetch(url, { signal: ctl, cache: 'no-store' })
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function (d) {
+        var bad = validEligibility(d);
+        if (bad.length) return { status: 'error', reason: 'eligibility feed failed validation: ' + bad.slice(0, 4).join(', ') };
+        return { status: 'ok', data: d };
+      }, function (e) { return { status: 'unavailable', reason: 'eligibility feed fetch failed: ' + (e && e.message || e) }; }));
+  }
+
   /** Case-insensitive lookup of an address in an epoch's holders/ineligible maps. */
   function findAddr(map, address) {
     if (!map) return null;
@@ -97,5 +128,5 @@
     }, function (e) { return { state: 'UNAVAILABLE', reason: 'RPC could not verify the proof: ' + (e && e.message || e) }; });
   }
 
-  window.RR.providers = { getEpoch: getEpoch, findAddr: findAddr, verifyClaimable: verifyClaimable, _validate: validEpoch };
+  window.RR.providers = { getEpoch: getEpoch, getEligibility: getEligibility, findAddr: findAddr, verifyClaimable: verifyClaimable, _validate: validEpoch };
 })();

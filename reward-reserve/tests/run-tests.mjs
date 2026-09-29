@@ -34,6 +34,15 @@ const PRICE_READER = '0x383a3da5f0df829e68893d1c5cff728657ed6510';
 const NET_USDG_POOL = '0x59f95461e68e0c77605299791e1449f175165b54';
 const HOLDER = '0x784a7839a555773a57eee471b9cf9e076f2287e4'; // matches the fixture epoch JSON below
 const OTHER = '0x000000000000000000000000000000000000be01';
+const UNTRACKED = '0x0000000000000000000000000000000000cafe01'; // in neither holders nor ineligible
+const ELIGIBILITY_URL = 'https://raw.githubusercontent.com/dryymartini/tenten-reward-reserve-data/main/eligibility.json';
+const ELIGIBILITY_FIXTURE = {
+  snapshotTime: 1790661451,
+  eligibility: { minDays: 30 },
+  totals: { eligibleHolders: 1, ineligibleHolders: 1 },
+  holders: { [HOLDER]: { balance: '990000000000000000000000', eligibleBalance: '990000000000000000000000', lots: [{ amount: '990000000000000000000000', since: 1787000000, days: 45, eligible: true }] } },
+  ineligible: { [OTHER]: { balance: '500000000000000000000', youngestLotDays: 12, daysUntilEligible: 18 } }
+};
 
 // ---------------------------------------------------------------- static server (page + fixture epoch JSON)
 const MIME = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.webp': 'image/webp', '.svg': 'image/svg+xml', '.json': 'application/json' };
@@ -143,7 +152,7 @@ function walletInitScript(account) {
 // ---------------------------------------------------------------- run
 const browser = await chromium.launch();
 const results = [];
-async function scenario(name, { rpc, wallet, epochsBaseUrl, autoConnect = true, addr = HOLDER, wait = 2000 }) {
+async function scenario(name, { rpc, wallet, epochsBaseUrl, eligibility, autoConnect = true, addr = HOLDER, wait = 2000 }) {
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   const page = await ctx.newPage();
   const errors = [], rpcLog = [];
@@ -162,6 +171,10 @@ async function scenario(name, { rpc, wallet, epochsBaseUrl, autoConnect = true, 
     }
     if (u.startsWith('https://rpc.mainnet.chain.robinhood.com') && rpc) return rpcRoute(rpc, rpcLog)(route);
     if (u.includes('/api/v2/smart-contracts/')) return route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
+    if (u === ELIGIBILITY_URL) {
+      if (eligibility) return route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify(eligibility) });
+      return route.abort('connectionrefused'); // default: feed unreachable, must show "—" not a guess
+    }
     return route.abort('connectionrefused');
   });
   await page.goto(URL0, { waitUntil: 'load' });
@@ -189,6 +202,8 @@ async function scenario(name, { rpc, wallet, epochsBaseUrl, autoConnect = true, 
     ovHolders: document.querySelector('[data-l="ov_holders"]').textContent,
     ovEligTotal: document.querySelector('[data-l="ov_eligTotal"]').textContent,
     eligYn: document.querySelector('[data-l="m_eligYn"]') ? document.querySelector('[data-l="m_eligYn"]').textContent : null,
+    eligDaysToElig: document.querySelector('[data-l="m_daysToElig"]') ? document.querySelector('[data-l="m_daysToElig"]').textContent : null,
+    eligAsOf: document.querySelector('[data-l="m_eligAsOf"]') ? document.querySelector('[data-l="m_eligAsOf"]').textContent : null,
     share: document.querySelector('[data-l="m_share"]') ? document.querySelector('[data-l="m_share"]').textContent : null,
     lotList: document.querySelector('#lotList') ? document.querySelector('#lotList').innerText : null,
     donateAddr: document.querySelector('#donateBox code') ? document.querySelector('#donateBox code').textContent : null,
@@ -214,6 +229,13 @@ async function scenario(name, { rpc, wallet, epochsBaseUrl, autoConnect = true, 
 
 await scenario('no-wallet', { rpc: makeRpc({ latestEpochId: 0 }), wallet: null });
 await scenario('epoch-unavail', { rpc: makeRpc({}), wallet: null, epochsBaseUrl: null });
+
+// pre-distribution eligibility feed (2026-09-29): no epoch has ever been published
+// (latestEpochId=0), so eligibility comes from the separate eligibility.json feed instead
+await scenario('eligibility-holder', { rpc: makeRpc({ latestEpochId: 0 }), wallet: null, addr: HOLDER, eligibility: ELIGIBILITY_FIXTURE });
+await scenario('eligibility-notyet', { rpc: makeRpc({ latestEpochId: 0 }), wallet: null, addr: OTHER, eligibility: ELIGIBILITY_FIXTURE });
+await scenario('eligibility-untracked', { rpc: makeRpc({ latestEpochId: 0 }), wallet: null, addr: UNTRACKED, eligibility: ELIGIBILITY_FIXTURE });
+await scenario('eligibility-feed-down', { rpc: makeRpc({ latestEpochId: 0 }), wallet: null, addr: HOLDER }); // no `eligibility` -> feed fetch fails
 
 {
   // stateful: once the (mocked) transaction receipt is fetched, flip claimedBy() true from then on,
@@ -311,6 +333,23 @@ if (claimed.claimBtnDisabled !== true) bad.push('claim-claimed: claim button mus
 
 const unavail = results.find(r => r.name === 'epoch-unavail');
 if (!/not configured/i.test(unavail.epochRows || '')) bad.push('epoch-unavail: must show an explicit "not configured" state, never fabricate epoch data');
+
+// ---- pre-distribution eligibility feed: used only when no epoch has ever been published, and
+// only ever reflects real holding history from the feed — never a guess
+const eligHolder = results.find(r => r.name === 'eligibility-holder');
+if (!/^yes/i.test(eligHolder.eligYn || '')) bad.push('eligibility-holder: expected "Yes" for a wallet listed in the feed\'s holders, got: ' + eligHolder.eligYn);
+if (!/lot 1/i.test(eligHolder.lotList || '')) bad.push('eligibility-holder: expected the feed\'s lot to render in the lot list');
+if (!eligHolder.eligAsOf || !/29 sep 2026/i.test(eligHolder.eligAsOf)) bad.push('eligibility-holder: expected a readable snapshot date from snapshotTime, got: ' + eligHolder.eligAsOf);
+
+const eligNotYet = results.find(r => r.name === 'eligibility-notyet');
+if (!/not yet.*18 day/i.test(eligNotYet.eligYn || '')) bad.push('eligibility-notyet: expected "Not yet - 18 days left" using the feed\'s daysUntilEligible, got: ' + eligNotYet.eligYn);
+if (!/^18 day/i.test(eligNotYet.eligDaysToElig || '')) bad.push('eligibility-notyet: days-to-eligible field should read 18 days, got: ' + eligNotYet.eligDaysToElig);
+
+const eligUntracked = results.find(r => r.name === 'eligibility-untracked');
+if (!/no ten held/i.test(eligUntracked.eligYn || '')) bad.push('eligibility-untracked: an address in neither holders nor ineligible must say so explicitly, got: ' + eligUntracked.eligYn);
+
+const eligDown = results.find(r => r.name === 'eligibility-feed-down');
+if (eligDown.eligYn !== '—') bad.push('eligibility-feed-down: an unreachable feed must show "—", never a guessed eligibility, got: ' + eligDown.eligYn);
 
 // ---- countdown: never negative, and the reserve+monitor boxes must always resolve
 for (const r of results) {

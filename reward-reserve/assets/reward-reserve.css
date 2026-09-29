@@ -211,6 +211,9 @@ table.lots.light td.bad{color:#9A2E2E}
 .kvv .usd{font-size:11px;letter-spacing:.06em;color:var(--ink-2);text-shadow:none}
 .kvv .usd:empty{display:none}
 
+/* ---- eligibility feed snapshot note (2026-09-29) — small/grey, hidden when empty --------- */
+[data-l="m_eligAsOf"]:empty{display:none;margin-top:0}
+
 /* ---- community donations --------------------------------------------- */
 .donaterow{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start;margin-top:4px}
 .donaterow .crow{flex:1 1 320px;min-width:0;border-bottom:none;padding:0}

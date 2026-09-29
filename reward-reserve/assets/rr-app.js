@@ -18,6 +18,10 @@
   function H(k, html) { $$('[data-l="' + k + '"]').forEach(function (e) { e.innerHTML = html; }); }
   function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function num(n) { return Number(n).toLocaleString('en-US'); }
+  function fmtDate(ts) {
+    var d = new Date(Number(ts) * 1000);
+    return d.getUTCDate() + ' ' + ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getUTCMonth()] + ' ' + d.getUTCFullYear() + ', ' + ('0' + d.getUTCHours()).slice(-2) + ':' + ('0' + d.getUTCMinutes()).slice(-2) + ' UTC';
+  }
   var DEC = { ten: 18, snet: 9 };
   function sn(v) { return CH.amt(v, DEC.snet, 'sNET'); }
   function tn(v) { return CH.amt(v, DEC.ten, 'TEN'); }
@@ -418,7 +422,7 @@
     meOut.hidden = false; claimBtn.disabled = true; claimStatus.textContent = ''; alertBox('claim', '');
     epochRows.innerHTML = '<tr><td colspan="4">reading…</td></tr>';
     S('m_bal', '…'); S('m_elig', '…'); S('m_toClaim', '…'); S('m_claimed', '…');
-    S('m_eligYn', '…'); S('m_age', '…'); S('m_daysToElig', '…'); S('m_share', '…'); H('lotList', '');
+    S('m_eligYn', '…'); S('m_age', '…'); S('m_daysToElig', '…'); S('m_share', '…'); H('lotList', ''); S('m_eligAsOf', '');
 
     var latestP = CH.one(CH.ethCall(R, CH.SEL.latestEpochId));
     var balP = CH.one(CH.ethCall(A.ten, CH.encBalanceOf(address)));
@@ -429,10 +433,17 @@
       if (!latest) {
         S('m_elig', '0 TEN'); S('m_toClaim', '0 sNET'); S('m_claimed', '0 sNET');
         S('m_elig_usd', ''); S('m_toClaim_usd', ''); S('m_claimed_usd', '');
-        S('m_eligYn', '—'); S('m_age', '—'); S('m_daysToElig', '—'); S('m_share', '—');
+        S('m_eligSub', 'no published epoch yet — eligibility below is from a separate pre-distribution snapshot');
         epochRows.innerHTML = '<tr><td colspan="4">no epoch published yet</td></tr>';
         LAST = { address: address, ready: [] };
-        return;
+        // No epoch exists yet to answer "am I eligible / how many days left", so fall back to the
+        // separate, independent eligibility.json feed (real holding history, updated periodically,
+        // available well before the first crystallize()/publishEpoch()). This never touches claims
+        // or allocation amounts — those still come only from a real published epoch.
+        return P.getEligibility().then(function (elig) {
+          if (elig.status === 'ok') renderEligibilityFromFeed(elig.data, address);
+          else { S('m_eligYn', '—'); S('m_age', '—'); S('m_daysToElig', '—'); S('m_share', '—'); H('lotList', ''); S('m_eligAsOf', elig.reason || ''); }
+        });
       }
       var ids = []; for (var i = latest; i >= 1; i--) ids.push(i);
       return Promise.all(ids.map(function (id) { return P.getEpoch(id); })).then(function (epochs) {
@@ -442,6 +453,39 @@
       alertBox('claim', '<b>Could not read this address.</b> ' + esc(e.message || String(e)));
       epochRows.innerHTML = '<tr><td colspan="4">unavailable</td></tr>';
     });
+  }
+
+  // Pre-distribution eligibility, from the separate eligibility.json feed (real holding history,
+  // no epoch/claim data involved) — used only while no epoch has ever been published (see
+  // runLookup). A wallet is in at most one of holders/ineligible; absent from both means no
+  // tracked TEN holding, shown as such rather than guessed.
+  function renderEligibilityFromFeed(elig, address) {
+    S('m_eligAsOf', elig.snapshotTime ? 'eligibility snapshot · ' + fmtDate(elig.snapshotTime) : '');
+    var entry = P.findAddr(elig.holders, address);
+    if (entry) {
+      S('m_eligYn', 'Yes'); S('m_daysToElig', 'all lots eligible'); S('m_share', '—');
+      var lots = Array.isArray(entry.lots) ? entry.lots : null;
+      if (lots && lots.length) {
+        var oldest = lots.reduce(function (a, b) { return a.days >= b.days ? a : b; });
+        S('m_age', oldest.days + ' day' + (oldest.days === 1 ? '' : 's') + ' (oldest lot)');
+        H('lotList', '<div class="rk">Your TEN lots</div><ol>' + lots.map(function (l, i) {
+          return '<li><span>Lot ' + (i + 1) + '</span><span>' + tn(l.amount) + '</span><span>' + l.days + 'd held</span><span class="tag ' + (l.eligible ? 'ok">eligible' : 'bad">not yet') + '</span></li>';
+        }).join('') + '</ol>');
+      } else {
+        S('m_age', 'no lot data'); H('lotList', '');
+      }
+      return;
+    }
+    var inelig = P.findAddr(elig.ineligible, address);
+    if (inelig) {
+      var days = inelig.daysUntilEligible != null ? Number(inelig.daysUntilEligible) : null;
+      S('m_eligYn', days != null ? 'Not yet — ' + days + ' day' + (days === 1 ? '' : 's') + ' left' : 'No');
+      S('m_age', inelig.youngestLotDays != null ? inelig.youngestLotDays + ' day' + (inelig.youngestLotDays === 1 ? '' : 's') + ' (youngest lot)' : '—');
+      S('m_daysToElig', days != null ? days + ' day' + (days === 1 ? '' : 's') : '—');
+      S('m_share', '—'); H('lotList', '');
+      return;
+    }
+    S('m_eligYn', 'No TEN held (tracked)'); S('m_age', '—'); S('m_daysToElig', '—'); S('m_share', '—'); H('lotList', '');
   }
 
   // Personal dashboard extras: everything here comes from the already-fetched latest
