@@ -187,18 +187,19 @@ table.lots.bsheet tr.total td{border-top:2px solid var(--ink);border-bottom:none
 .kmetric{background:var(--panel-2);border:2px solid;border-color:var(--lo) var(--hi) var(--hi) var(--lo);padding:12px 14px}
 .kmetric .kml{display:block;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-2);margin-bottom:4px}
 .kmetric b{display:block;font-family:var(--serif);font-size:clamp(22px,3.4vw,32px);font-weight:700;color:var(--title);line-height:1.1}
-.kmetric small.usd{display:block;font-size:12px;color:var(--ink-2);margin-top:2px}
+.kmetric .kmv{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.kmetric .kmv b{display:inline}
+.kmetric small.usd{font-size:12px;color:var(--ink-2)}
 table.ovsheet{width:100%;border-collapse:collapse;font-size:16px}
 table.ovsheet th{font-weight:400;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-2);text-align:left;padding:6px 8px}
 table.ovsheet th.num{text-align:right}
-table.ovsheet td{padding:7px 8px;border-bottom:1px solid var(--lo)}
+table.ovsheet td{padding:7px 8px;border-bottom:1px solid var(--lo);font-size:13px;color:var(--ink-2)}
 table.ovsheet td.num{text-align:right;font-family:var(--serif);font-variant-numeric:tabular-nums}
 table.ovsheet tbody tr:nth-child(odd){background:var(--panel-2)}
-table.ovsheet td:first-child{display:flex;flex-direction:column;gap:1px}
-table.ovsheet td:first-child small{font-family:var(--ui);font-size:11px;letter-spacing:.04em;color:var(--ink-2);text-transform:none;font-style:normal}
-table.ovsheet td.num b{font-weight:400}
-table.ovsheet td.num .usd{display:block;font-size:11px;color:var(--ink-2);text-shadow:none;margin-top:1px}
+table.ovsheet td.num b{font-weight:400;font-size:16px;color:var(--ink)}
+table.ovsheet td.num .usd{display:inline-block;font-size:11px;color:var(--ink-2);text-shadow:none;margin-left:6px}
 table.ovsheet tr.total td{border-top:2px solid var(--ink);border-bottom:none;font-weight:700;padding-top:9px}
+table.ovsheet tr.total td:first-child{color:var(--ink);font-size:14px}
 table.ovsheet tr.total td.num b{font-weight:700}
 
 /* visible checkpoint markers, so a flat (e.g. brand-new) line still reads as data, not empty grid */

@@ -197,7 +197,6 @@
         var totalReserveUsd = (uSnet != null && uNet != null && uTen != null) ? (uSnet + uNet + uTen) : null;
         var totalReserveText = totalReserveUsd == null ? '—' : fmtUsd(totalReserveUsd);
         S('ov_totalReserve', totalReserveText); S('ov_totalReserve2', totalReserveText);
-        S('ov_totalReserve_note', totalReserveUsd == null ? 'Unavailable — one or more $ prices could not be read.' : '$ equivalent only — the three assets have different prices and can’t be added as raw quantities.');
 
         // Eligible wallets / Eligible TEN in Overview come from the eligibility.json feed (not the
         // on-chain epoch) per Matteo, 2026-09-29 — independent of latestEpochId, which now shows only

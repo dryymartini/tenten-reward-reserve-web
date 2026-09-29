@@ -58,12 +58,10 @@
         <div class="kmetric">
           <span class="kml">Total Reward Reserve (sNET + NET + TEN)</span>
           <b data-l="ov_totalReserve">--</b>
-          <small class="usd" data-l="ov_totalReserve_note">$ equivalent only — the three assets have different prices and can't be added as raw quantities</small>
         </div>
         <div class="kmetric">
           <span class="kml">Next distribution rewards · live estimate</span>
-          <b data-l="ov_nextRound2">--</b>
-          <small class="usd" data-l="ov_nextRound2_usd"></small>
+          <span class="kmv"><b data-l="ov_nextRound2">--</b><small class="usd" data-l="ov_nextRound2_usd"></small></span>
         </div>
       </div>
       <div class="two">
@@ -71,13 +69,13 @@
           <table class="ovsheet">
             <thead><tr><th>Reserve composition</th><th class="num">Amount</th></tr></thead>
             <tbody>
-              <tr><td>sNET principal<small>principalValue() − growth/2</small></td><td class="num"><b data-l="ov_principal">--</b><span class="usd" data-l="ov_principal_usd"></span></td></tr>
-              <tr><td>Next sNET reward<small>growth/2, live projection</small></td><td class="num"><b data-l="ov_nextRound">--</b><span class="usd" data-l="ov_nextRound_usd"></span></td></tr>
-              <tr><td>Unclaimed sNET reward<small>outstandingLiabilityValue()</small></td><td class="num"><b data-l="ov_liab">--</b><span class="usd" data-l="ov_liab_usd"></span></td></tr>
+              <tr><td>sNET principal</td><td class="num"><b data-l="ov_principal">--</b><span class="usd" data-l="ov_principal_usd"></span></td></tr>
+              <tr><td>Next sNET reward</td><td class="num"><b data-l="ov_nextRound">--</b><span class="usd" data-l="ov_nextRound_usd"></span></td></tr>
+              <tr><td>Unclaimed sNET reward</td><td class="num"><b data-l="ov_liab">--</b><span class="usd" data-l="ov_liab_usd"></span></td></tr>
               <tr class="total"><td>Total sNET treasury</td><td class="num"><b data-l="ov_snetTotal">--</b><span class="usd" data-l="ov_snetTotal_usd"></span></td></tr>
-              <tr><td>TEN Reserve<small>TEN.balanceOf(reserve)</small></td><td class="num"><b data-l="mon_ten">--</b><span class="usd" data-l="mon_ten_usd"></span></td></tr>
-              <tr><td>NET (to be staked)<small>NET.balanceOf(reserve), not yet processed</small></td><td class="num"><b data-l="ov_net">--</b><span class="usd" data-l="ov_net_usd"></span></td></tr>
-              <tr class="total"><td>Total Reward Reserve<small>sNET + NET + TEN, $ equivalents only</small></td><td class="num"><b data-l="ov_totalReserve2">--</b></td></tr>
+              <tr><td>TEN Reserve</td><td class="num"><b data-l="mon_ten">--</b><span class="usd" data-l="mon_ten_usd"></span></td></tr>
+              <tr><td>NET (to be staked)</td><td class="num"><b data-l="ov_net">--</b><span class="usd" data-l="ov_net_usd"></span></td></tr>
+              <tr class="total"><td>Total Reward Reserve</td><td class="num"><b data-l="ov_totalReserve2">--</b></td></tr>
             </tbody>
           </table>
         </div>
@@ -85,12 +83,12 @@
           <table class="ovsheet">
             <thead><tr><th>Distribution status</th><th class="num">Value</th></tr></thead>
             <tbody>
-              <tr><td>sNET yield · current round<small>principalValue() − principalCheckpoint()</small></td><td class="num"><b data-l="ov_growth">--</b><span class="usd" data-l="ov_growth_usd"></span></td></tr>
-              <tr><td>Next distribution rewards<small>growth/2, live projection</small></td><td class="num"><b data-l="ov_nextRound3">--</b><span class="usd" data-l="ov_nextRound3_usd"></span></td></tr>
-              <tr><td>Past distributions<small>latestEpochId()</small></td><td class="num"><b data-l="ov_latestEpoch">--</b></td></tr>
-              <tr><td>Eligible wallets<small>eligibility feed</small></td><td class="num"><b data-l="ov_holders">--</b></td></tr>
-              <tr><td>Eligible TEN<small>eligibility feed</small></td><td class="num"><b data-l="ov_eligTotal">--</b></td></tr>
-              <tr><td>Solvency<small>isSolvent()</small></td><td class="num"><b data-l="ov_solvent">--</b></td></tr>
+              <tr><td>sNET yield · current round</td><td class="num"><b data-l="ov_growth">--</b><span class="usd" data-l="ov_growth_usd"></span></td></tr>
+              <tr><td>Next distribution rewards</td><td class="num"><b data-l="ov_nextRound3">--</b><span class="usd" data-l="ov_nextRound3_usd"></span></td></tr>
+              <tr><td>Past distributions</td><td class="num"><b data-l="ov_latestEpoch">--</b></td></tr>
+              <tr><td>Eligible wallets</td><td class="num"><b data-l="ov_holders">--</b></td></tr>
+              <tr><td>Eligible TEN</td><td class="num"><b data-l="ov_eligTotal">--</b></td></tr>
+              <tr><td>Solvency</td><td class="num"><b data-l="ov_solvent">--</b></td></tr>
               <tr><td>Read at block</td><td class="num"><b data-l="ov_block">--</b></td></tr>
             </tbody>
           </table>
