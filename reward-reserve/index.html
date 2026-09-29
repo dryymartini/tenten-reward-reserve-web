@@ -54,27 +54,49 @@
   <section class="win out" id="overview" data-mod="chain">
     <div class="bar"><span>Overview · live from the chain</span><span class="btns"><button type="button" data-min aria-label="Minimize">_</button><button type="button" aria-label="Maximize">□</button><button type="button" aria-label="Close">×</button></span></div>
     <div class="body">
-      <div class="vault">
-        <div class="lcd in gauge">
-          <div class="k">Principal value · live projection</div>
-          <div class="v" data-l="ov_principal">--</div>
-          <div class="usd" data-l="ov_principal_usd"></div>
-          <div class="s">Live estimate — already includes half of the yield accrued since the last checkpoint, which stays in the reserve after the next distribution. Becomes final at the next <code>crystallize()</code>.</div>
+      <div class="kmetrics">
+        <div class="kmetric">
+          <span class="kml">Total Reward Reserve (sNET + NET + TEN)</span>
+          <b data-l="ov_totalReserve">--</b>
+          <small class="usd" data-l="ov_totalReserve_note">$ equivalent only — the three assets have different prices and can't be added as raw quantities</small>
         </div>
-        <div class="side">
-          <div class="kv">
-            <div title="Live estimate, updates automatically — becomes final at the next distribution."><span>Next round rewards · live estimate</span><span class="kvv"><b data-l="ov_nextRound">--</b><small class="usd" data-l="ov_nextRound_usd"></small></span></div>
-            <div><span>Holder-side value · not yet assigned</span><span class="kvv"><b data-l="ov_holderside">--</b><small class="usd" data-l="ov_holderside_usd"></small></span></div>
-            <div><span>Allocated / unclaimed</span><span class="kvv"><b data-l="ov_liab">--</b><small class="usd" data-l="ov_liab_usd"></small></span></div>
-            <div><span>Solvency · isSolvent()</span><b data-l="ov_solvent">--</b></div>
-            <div><span>Latest epoch published</span><b data-l="ov_latestEpoch">--</b></div>
-            <div><span>Eligible wallets · latest epoch</span><b data-l="ov_holders">--</b></div>
-            <div><span>Eligible TEN · latest epoch</span><b data-l="ov_eligTotal">--</b></div>
-            <div><span>Read at block</span><b data-l="ov_block">--</b></div>
-          </div>
-          <p class="st"><b data-l="badge">LOADING</b> <span data-l="updated">connecting to Robinhood Chain…</span></p>
+        <div class="kmetric">
+          <span class="kml">Next distribution rewards · live estimate</span>
+          <b data-l="ov_nextRound2">--</b>
+          <small class="usd" data-l="ov_nextRound2_usd"></small>
         </div>
       </div>
+      <div class="two">
+        <div class="tscroll">
+          <table class="ovsheet">
+            <thead><tr><th>Reserve composition</th><th class="num">Amount</th></tr></thead>
+            <tbody>
+              <tr><td>sNET principal<small>principalValue() − growth/2</small></td><td class="num"><b data-l="ov_principal">--</b><span class="usd" data-l="ov_principal_usd"></span></td></tr>
+              <tr><td>Next sNET reward<small>growth/2, live projection</small></td><td class="num"><b data-l="ov_nextRound">--</b><span class="usd" data-l="ov_nextRound_usd"></span></td></tr>
+              <tr><td>Unclaimed sNET reward<small>outstandingLiabilityValue()</small></td><td class="num"><b data-l="ov_liab">--</b><span class="usd" data-l="ov_liab_usd"></span></td></tr>
+              <tr class="total"><td>Total sNET treasury</td><td class="num"><b data-l="ov_snetTotal">--</b><span class="usd" data-l="ov_snetTotal_usd"></span></td></tr>
+              <tr><td>TEN Reserve<small>TEN.balanceOf(reserve)</small></td><td class="num"><b data-l="mon_ten">--</b><span class="usd" data-l="mon_ten_usd"></span></td></tr>
+              <tr><td>NET (to be staked)<small>NET.balanceOf(reserve), not yet processed</small></td><td class="num"><b data-l="ov_net">--</b><span class="usd" data-l="ov_net_usd"></span></td></tr>
+              <tr class="total"><td>Total Reward Reserve<small>sNET + NET + TEN, $ equivalents only</small></td><td class="num"><b data-l="ov_totalReserve2">--</b></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="tscroll">
+          <table class="ovsheet">
+            <thead><tr><th>Distribution status</th><th class="num">Value</th></tr></thead>
+            <tbody>
+              <tr><td>sNET yield · current round<small>principalValue() − principalCheckpoint()</small></td><td class="num"><b data-l="ov_growth">--</b><span class="usd" data-l="ov_growth_usd"></span></td></tr>
+              <tr><td>Next distribution rewards<small>growth/2, live projection</small></td><td class="num"><b data-l="ov_nextRound3">--</b><span class="usd" data-l="ov_nextRound3_usd"></span></td></tr>
+              <tr><td>Past distributions<small>latestEpochId()</small></td><td class="num"><b data-l="ov_latestEpoch">--</b></td></tr>
+              <tr><td>Eligible wallets<small>eligibility feed</small></td><td class="num"><b data-l="ov_holders">--</b></td></tr>
+              <tr><td>Eligible TEN<small>eligibility feed</small></td><td class="num"><b data-l="ov_eligTotal">--</b></td></tr>
+              <tr><td>Solvency<small>isSolvent()</small></td><td class="num"><b data-l="ov_solvent">--</b></td></tr>
+              <tr><td>Read at block</td><td class="num"><b data-l="ov_block">--</b></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <p class="st"><b data-l="badge">LOADING</b> <span data-l="updated">connecting to Robinhood Chain…</span></p>
       <div class="alert" data-l-alert="overview" hidden></div>
     </div>
   </section>

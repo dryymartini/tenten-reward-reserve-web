@@ -30,6 +30,7 @@ fs.mkdirSync(OUT, { recursive: true });
 const R = '0xc05ddfbd4f9a46ae297b286d4d6998a0c0ea27fe';
 const TEN = '0xc4f021c73a5b6ffae6c43515f0a4bbf615b31c7b';
 const SNET = '0xb773ec2c326b7f98a5a83fc098825492f020a4c7';
+const NET = '0xca9c78dd337a67f6e0077f65f5e9218719d30edf';
 const PRICE_READER = '0x383a3da5f0df829e68893d1c5cff728657ed6510';
 const NET_USDG_POOL = '0x59f95461e68e0c77605299791e1449f175165b54';
 const HOLDER = '0x784a7839a555773a57eee471b9cf9e076f2287e4'; // matches the fixture epoch JSON below
@@ -39,7 +40,7 @@ const ELIGIBILITY_URL = 'https://raw.githubusercontent.com/dryymartini/tenten-re
 const ELIGIBILITY_FIXTURE = {
   snapshotTime: 1790661451,
   eligibility: { minDays: 30 },
-  totals: { eligibleHolders: 1, ineligibleHolders: 1 },
+  totals: { eligibleHolders: 1, ineligibleHolders: 1, totalEligibleBalance: '990000000000000000000000' },
   holders: { [HOLDER]: { balance: '990000000000000000000000', eligibleBalance: '990000000000000000000000', lots: [{ amount: '990000000000000000000000', since: 1787000000, days: 45, eligible: true }] } },
   ineligible: { [OTHER]: { balance: '500000000000000000000', youngestLotDays: 12, daysUntilEligible: 18 } }
 };
@@ -102,6 +103,7 @@ function makeRpc(opts) {
       }
       if (to === TEN && sel === '0x70a08231') return w(opts.tenBalance ?? '990000000000000000000000'); // balanceOf
       if (to === SNET && sel === '0x70a08231') return w(opts.snetBalance ?? '250000000000'); // balanceOf
+      if (to === NET && sel === '0x70a08231') return w(opts.netBalance ?? '75000000000'); // balanceOf — NET arrived, not yet processed via processNet()
       if (to === PRICE_READER && sel === '0x55a4ef5f') { // getSpotPriceWad()
         if (opts.priceFail) throw { code: -32000, message: 'execution reverted (mocked price read failure)' };
         return w(opts.netPerTenWad ?? '353000000000'); // default matches Matteo's worked example
@@ -219,7 +221,13 @@ async function scenario(name, { rpc, wallet, epochsBaseUrl, eligibility, autoCon
     gLiveAsOf: document.querySelector('[data-l="gLiveAsOf"]') ? document.querySelector('[data-l="gLiveAsOf"]').textContent : null,
     gHasPrincipalLine: !!document.querySelector('#gChart svg path.pline'),
     ovNextRound: document.querySelector('[data-l="ov_nextRound"]') ? document.querySelector('[data-l="ov_nextRound"]').textContent : null,
-    ovNextRoundUsd: document.querySelector('[data-l="ov_nextRound_usd"]') ? document.querySelector('[data-l="ov_nextRound_usd"]').textContent : null
+    ovNextRoundUsd: document.querySelector('[data-l="ov_nextRound_usd"]') ? document.querySelector('[data-l="ov_nextRound_usd"]').textContent : null,
+    ovNet: document.querySelector('[data-l="ov_net"]') ? document.querySelector('[data-l="ov_net"]').textContent : null,
+    ovSnetTotal: document.querySelector('[data-l="ov_snetTotal"]') ? document.querySelector('[data-l="ov_snetTotal"]').textContent : null,
+    ovGrowth: document.querySelector('[data-l="ov_growth"]') ? document.querySelector('[data-l="ov_growth"]').textContent : null,
+    ovTotalReserve: document.querySelector('[data-l="ov_totalReserve"]') ? document.querySelector('[data-l="ov_totalReserve"]').textContent : null,
+    ovTotalReserve2: document.querySelector('[data-l="ov_totalReserve2"]') ? document.querySelector('[data-l="ov_totalReserve2"]').textContent : null,
+    ovLatestEpoch: document.querySelector('[data-l="ov_latestEpoch"]') ? document.querySelector('[data-l="ov_latestEpoch"]').textContent : null
   }));
   const shot = path.join(OUT, `${name}.png`);
   await page.screenshot({ path: shot, fullPage: true });
@@ -408,7 +416,32 @@ const withLots = results.find(r => r.name === 'claim-ready');
 if (!/yes/i.test(withLots.eligYn || '')) bad.push('claim-ready: eligibility should read Yes for the fully-eligible fixture holder');
 if (withLots.share !== '100.00%') bad.push('claim-ready: share should read 100.00% for the fixture\'s shareBps of 10000, got: ' + withLots.share);
 if (!/lot 1/i.test(withLots.lotList || '')) bad.push('claim-ready: lot list did not render the fixture\'s single TEN lot');
-if (withLots.ovHolders === '—' || withLots.ovEligTotal === '—') bad.push('claim-ready: overview general stats (eligible holders/TEN) should populate from the latest epoch\'s totals');
+// Overview's "Eligible wallets"/"Eligible TEN" now come from the eligibility.json feed, not the
+// epoch (2026-09-29, per Matteo) — claim-ready doesn't mock that feed, so it must show "—", never
+// fall back to the epoch's totals or fabricate a number.
+if (withLots.ovHolders !== '—' || withLots.ovEligTotal !== '—') bad.push('claim-ready: overview eligible-wallets/TEN must read "—" when the eligibility feed is not mocked, not fall back to epoch totals');
+
+// ---- Overview balance sheet (2026-09-29): eligibility feed now also feeds Overview's right
+// column (independent of the claim epoch), and NET/sNET/TEN combine into the two new totals
+const eligHolderOv = results.find(r => r.name === 'eligibility-holder');
+if (eligHolderOv.ovHolders === '—' || eligHolderOv.ovEligTotal === '—') bad.push('eligibility-holder: overview eligible-wallets/TEN should populate from the eligibility feed\'s totals');
+for (const r of results.filter(r => r.name !== 'price-fail')) {
+  if (!r.ovNet || r.ovNet === '--') bad.push(r.name + ': Overview "NET (to be staked)" row did not render');
+  if (!r.ovSnetTotal || r.ovSnetTotal === '--') bad.push(r.name + ': Overview "Total sNET treasury" row did not render');
+  if (!r.ovGrowth || r.ovGrowth === '--') bad.push(r.name + ': Overview "sNET yield current round" row did not render');
+  if (!r.ovTotalReserve || r.ovTotalReserve === '--') bad.push(r.name + ': Overview "Total Reward Reserve" key metric did not render');
+  if (r.ovTotalReserve !== r.ovTotalReserve2) bad.push(r.name + ': the two "Total Reward Reserve" displays disagree (' + r.ovTotalReserve + ' vs ' + r.ovTotalReserve2 + ')');
+}
+// default fixture: total sNET treasury = principal(1000) + liab(250000000000) = 250000001000
+// units at 9 decimals = 250.0000 sNET, by construction equal to principalValue()+outstandingLiabilityValue()
+if (!/^250\.0000\s*sNET/.test(projScenario.ovSnetTotal || '')) bad.push('no-wallet: expected total sNET treasury 250.0000 sNET (principal 1000 + liab 250000000000), got: ' + projScenario.ovSnetTotal);
+// "Total Reward Reserve" must sum ONLY $ equivalents, never raw token quantities, and must go
+// blank ("—") rather than a partial/guessed number when a price read fails
+const priceFailOv = results.find(r => r.name === 'price-fail');
+if (priceFailOv.ovTotalReserve !== '—') bad.push('price-fail: "Total Reward Reserve" must read "—" when a $ price is unavailable, never a partial sum, got: ' + priceFailOv.ovTotalReserve);
+for (const r of results.filter(r => r.name !== 'price-fail')) {
+  if (!/^≈ \$/.test(r.ovTotalReserve || '')) bad.push(r.name + ': "Total Reward Reserve" should show a $ estimate when all prices are available, got: ' + r.ovTotalReserve);
+}
 
 // ---- $ estimates: render from the two mocked on-chain price reads by default, and show
 // nothing at all (never a guessed/partial number) when either read fails

@@ -25,6 +25,7 @@
   var DEC = { ten: 18, snet: 9 };
   function sn(v) { return CH.amt(v, DEC.snet, 'sNET'); }
   function tn(v) { return CH.amt(v, DEC.ten, 'TEN'); }
+  function nn(v) { return CH.amt(v, C.prices.netDecimals, 'NET'); } // NET decimals confirmed same as sNET (9)
 
   // $ estimates: spot prices from two on-chain reads (TenNetSpotReader + a Uniswap V2 pair),
   // combined in refreshPrices() below. PRICE stays null until both reads succeed, and every
@@ -33,14 +34,22 @@
   var PRICE = null; // { ten: usd per 1 TEN, net: usd per 1 NET (== per 1 sNET) } | null
   var LIVE = null;  // { principal, ts, block } set by refreshOverview; extends the Growth chart's
                      // sNET Principal line to "now" without a second read of the same values
-  function usdLabel(v, dec, key) {
-    if (!PRICE || v == null) return '';
-    var price = PRICE[key]; if (!(price > 0)) return '';
-    var human = Number(v) / Math.pow(10, dec);
-    var usd = human * price;
+  // Raw (unformatted) USD number, or null if the price isn't available — never a guess.
+  // Used both by usdLabel() below and by the "Total Reward Reserve" sum, which must add
+  // three different assets' $ values, never their raw token quantities (2026-09-29, per Matteo).
+  function usdRaw(v, dec, key) {
+    if (!PRICE || v == null) return null;
+    var price = PRICE[key]; if (!(price > 0)) return null;
+    return (Number(v) / Math.pow(10, dec)) * price;
+  }
+  function fmtUsd(usd) {
     if (usd > 0 && usd < 0.01) return '≈ <$0.01';
     var frac = usd < 1000 ? 2 : 0;
     return '≈ $' + usd.toLocaleString('en-US', { minimumFractionDigits: frac, maximumFractionDigits: frac });
+  }
+  function usdLabel(v, dec, key) {
+    var usd = usdRaw(v, dec, key);
+    return usd == null ? '' : fmtUsd(usd);
   }
   function badge(keys, text, bad) { keys.forEach(function (k) { $$('[data-l="' + k + '"]').forEach(function (e) { e.textContent = text; e.classList.toggle('bad', !!bad); }); }); }
   function alertBox(k, html, info) { $$('[data-l-alert="' + k + '"]').forEach(function (e) { e.hidden = !html; e.innerHTML = html || ''; e.classList.toggle('info', !!info); }); }
@@ -124,7 +133,8 @@
         CH.ethCall(R, CH.SEL.latestEpochId, tag),
         CH.ethCall(R, CH.SEL.lastCrystallization, tag), CH.ethCall(R, CH.SEL.crystallizationPeriod, tag),
         CH.ethCall(A.snet, CH.encBalanceOf(R), tag), CH.ethCall(A.ten, CH.encBalanceOf(R), tag),
-        CH.ethCall(R, CH.SEL.principalCheckpoint, tag)
+        CH.ethCall(R, CH.SEL.principalCheckpoint, tag),
+        CH.ethCall(A.net, CH.encBalanceOf(R), tag)
       ];
       // $ estimates fetched separately (rpcSettled, not the strict batch above): a revert or
       // missing contract on either price read must never take down the reserve's own numbers,
@@ -153,9 +163,12 @@
         var growth = principal > checkpoint ? principal - checkpoint : 0n;
         var projectedNextRound = growth / 2n;
         var projectedPrincipal = principal - projectedNextRound;
+        var netInReserve = CH.u(r[10], 0);
 
         S('ov_principal', sn(projectedPrincipal)); S('ov_holderside', sn(holderside)); S('ov_liab', sn(liab));
-        S('ov_nextRound', sn(projectedNextRound));
+        S('ov_nextRound', sn(projectedNextRound)); S('ov_nextRound2', sn(projectedNextRound)); S('ov_nextRound3', sn(projectedNextRound));
+        S('ov_growth', sn(growth));
+        S('ov_net', nn(netInReserve));
         S('ov_solvent', CH.boolAt(r[3], 0) ? 'SOLVENT' : 'INSOLVENT');
         var latestId = Number(CH.u(r[4], 0));
         S('ov_latestEpoch', num(latestId));
@@ -166,7 +179,33 @@
         // sNET is priced the same as NET (1:1 via unstake()), no separate read needed.
         S('mon_snet_usd', usdLabel(snetInReserve, DEC.snet, 'net')); S('mon_ten_usd', usdLabel(tenInReserve, DEC.ten, 'ten'));
         S('ov_principal_usd', usdLabel(projectedPrincipal, DEC.snet, 'net')); S('ov_holderside_usd', usdLabel(holderside, DEC.snet, 'net')); S('ov_liab_usd', usdLabel(liab, DEC.snet, 'net'));
-        S('ov_nextRound_usd', usdLabel(projectedNextRound, DEC.snet, 'net'));
+        S('ov_nextRound_usd', usdLabel(projectedNextRound, DEC.snet, 'net')); S('ov_nextRound2_usd', usdLabel(projectedNextRound, DEC.snet, 'net')); S('ov_nextRound3_usd', usdLabel(projectedNextRound, DEC.snet, 'net'));
+        S('ov_growth_usd', usdLabel(growth, DEC.snet, 'net'));
+        S('ov_net_usd', usdLabel(netInReserve, C.prices.netDecimals, 'net'));
+
+        // "Total sNET treasury" = principal + next round + unclaimed = exactly principalValue() +
+        // outstandingLiabilityValue() by construction (projectedPrincipal + projectedNextRound ==
+        // principal) — no extra on-chain read needed.
+        var snetTotal = principal + liab;
+        S('ov_snetTotal', sn(snetTotal)); S('ov_snetTotal_usd', usdLabel(snetTotal, DEC.snet, 'net'));
+
+        // "Total Reward Reserve (sNET + NET + TEN)" — summed ONLY as $ equivalents, never as raw
+        // token quantities (2026-09-29, explicit instruction from Matteo: three different assets,
+        // three different prices, summing raw amounts would be meaningless). Blank/em-dash, never
+        // a partial or guessed number, unless all three prices are available.
+        var uSnet = usdRaw(snetTotal, DEC.snet, 'net'), uNet = usdRaw(netInReserve, C.prices.netDecimals, 'net'), uTen = usdRaw(tenInReserve, DEC.ten, 'ten');
+        var totalReserveUsd = (uSnet != null && uNet != null && uTen != null) ? (uSnet + uNet + uTen) : null;
+        var totalReserveText = totalReserveUsd == null ? '—' : fmtUsd(totalReserveUsd);
+        S('ov_totalReserve', totalReserveText); S('ov_totalReserve2', totalReserveText);
+        S('ov_totalReserve_note', totalReserveUsd == null ? 'Unavailable — one or more $ prices could not be read.' : '$ equivalent only — the three assets have different prices and can’t be added as raw quantities.');
+
+        // Eligible wallets / Eligible TEN in Overview come from the eligibility.json feed (not the
+        // on-chain epoch) per Matteo, 2026-09-29 — independent of latestEpochId, which now shows only
+        // as "Past distributions".
+        P.getEligibility().then(function (elig) {
+          if (elig.status === 'ok' && elig.data.totals) { S('ov_holders', num(elig.data.totals.eligibleHolders)); S('ov_eligTotal', tn(elig.data.totals.totalEligibleBalance)); }
+          else { S('ov_holders', '—'); S('ov_eligTotal', '—'); }
+        });
 
         // Growth section's "live" point: the same values just read here (principal/next-round
         // already projected, unclaimed real from outstandingLiabilityValue()), shown independently
@@ -186,13 +225,6 @@
           S('mon_countdownSub', 'lastCrystallization() + CRYSTALLIZATION_PERIOD()');
         }
         startCountdownTicker();
-
-        if (latestId) {
-          P.getEpoch(latestId).then(function (ep) {
-            if (ep.status === 'ok' && ep.data.totals) { S('ov_holders', num(ep.data.totals.eligibleHolders)); S('ov_eligTotal', tn(ep.data.totals.totalEligibleBalance)); }
-            else { S('ov_holders', '—'); S('ov_eligTotal', '—'); }
-          });
-        } else { S('ov_holders', '—'); S('ov_eligTotal', '—'); }
 
         badge(['badge'], 'LIVE'); S('updated', 'block ' + num(head.number));
         alertBox('overview', '');
