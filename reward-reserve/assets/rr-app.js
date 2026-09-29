@@ -241,10 +241,16 @@
   // syntactic 32-byte hex checked). Decoding their `data` into actual reward-pot/unclaimed values
   // needs their confirmed parameter layout, which isn't confirmed yet — so those two lines stay flat
   // at 0 for every historical point (a real fact: no crystallize/epoch has happened yet) and this
-  // only counts/dates those three events, rather than guessing a field layout.
-  // PrincipalFunded(address indexed from, uint256 amount, uint256 newPrincipalValue) is different:
-  // Matteo gave its exact layout, so its own reported newPrincipalValue is plotted directly as the
-  // sNET Principal line for historical points — never estimated, just each event's own checkpoint.
+  // only counts/dates those three events, rather than guessing a field layout. Crystallized's own
+  // newPrincipalCheckpoint field (2026-09-29, per Matteo) is NOT decoded yet either, even though he
+  // named the field: he hasn't given its full event signature (param types / indexed flags), and
+  // guessing the position of a non-indexed field inside `data` from a name alone is exactly the kind
+  // of guess this codebase never makes — ask him for the full signature before wiring it in.
+  // PrincipalFunded(address indexed from, uint256 amount, uint256 newPrincipalValue) and
+  // NetProcessed(uint256 netAmount, uint256 sNetCredited, uint256 newPrincipalValue) are different:
+  // Matteo gave their exact layouts, so their own reported newPrincipalValue is plotted directly as
+  // the sNET Principal line for historical points — never estimated, just each event's own checkpoint,
+  // merged and sorted chronologically since both mean the same thing (Principal right after that event).
   // The final ("live") point is different again: it's the projected 50/50 crystallize split (see
   // refreshOverview, which computes it every 60s from principalValue()/principalCheckpoint() and
   // stores it in LIVE) — a preview of what crystallize() would produce right now, not a real event
@@ -303,9 +309,14 @@
     var rect = svg.getBoundingClientRect();
     var px = (ev.clientX - rect.left) / rect.width * GC.W;
     var t = GC.t0 + (px - GC.L) / (GC.W - GC.L - GC.Rr) * (GC.t1 - GC.t0);
-    var nearest = GC.pts[0], best = Infinity;
-    GC.pts.forEach(function (pt) { var d = Math.abs(pt.t - t); if (d < best) { best = d; nearest = pt; } });
-    gcShowTip(nearest);
+    // Step function, not nearest-neighbor: historical values only change at a real event, so the
+    // value "at" any hovered instant is whatever the last known point AT OR BEFORE it recorded — never
+    // an interpolation, and never snapped forward to a later event just because it's closer in time
+    // (2026-09-29, per Matteo). Only the live (projected) tail point can be "in the future" of the
+    // last recorded event; hovering past it still shows the live point, since it's the current estimate.
+    var chosen = GC.pts[0];
+    GC.pts.forEach(function (pt) { if (pt.t <= t) chosen = pt; });
+    gcShowTip(chosen);
   }
   function gcShowTip(pt) {
     var svg = $('#gChart svg'), wrap = $('#gChart'); if (!svg || !wrap) return;
@@ -344,10 +355,14 @@
       showMsg('DEPLOY BLOCK NOT SET'); return;
     }
     showMsg('READING EVENT LOG…');
-    CH.getLogsPaged(R, [[CH.TOPICS.Crystallized, CH.TOPICS.EpochPublished, CH.TOPICS.AllocationClaimed, CH.TOPICS.PrincipalFunded]], C.deployBlock).then(function (logs) {
+    CH.getLogsPaged(R, [[CH.TOPICS.Crystallized, CH.TOPICS.EpochPublished, CH.TOPICS.AllocationClaimed, CH.TOPICS.PrincipalFunded, CH.TOPICS.NetProcessed]], C.deployBlock).then(function (logs) {
       var funded = logs.filter(function (l) { return l.topics && l.topics[0] === CH.TOPICS.PrincipalFunded; })
-        .map(function (l) { return { block: Number(BigInt(l.blockNumber)), value: CH.u(l.data, 1) }; }) // data = [amount, newPrincipalValue]; `from` is indexed, not in data
-        .sort(function (a, b) { return a.block - b.block; });
+        .map(function (l) { return { block: Number(BigInt(l.blockNumber)), value: CH.u(l.data, 1) }; }); // data = [amount, newPrincipalValue]; `from` is indexed, not in data
+      var processed = logs.filter(function (l) { return l.topics && l.topics[0] === CH.TOPICS.NetProcessed; })
+        .map(function (l) { return { block: Number(BigInt(l.blockNumber)), value: CH.u(l.data, 2) }; }); // data = [netAmount, sNetCredited, newPrincipalValue], no indexed params
+      // Two different real-world events, same meaning (Principal right after that event) — merged and
+      // sorted chronologically into one series, exactly as Matteo specified.
+      var principalEvents = funded.concat(processed).sort(function (a, b) { return a.block - b.block; });
 
       var byTopic = { c: 0, e: 0, a: 0 };
       logs.forEach(function (l) {
@@ -357,16 +372,16 @@
       var otherNote = byTopic.c + ' crystallization(s) · ' + byTopic.e + ' epoch(s) published · ' + byTopic.a + ' claim(s) — reward-pot/unclaimed history needs the confirmed event layout before it can be plotted without guessing.';
       var totalLabel = logs.length + ' EVENT' + (logs.length === 1 ? '' : 'S') + ' SINCE DEPLOY';
 
-      if (!funded.length) {
+      if (!principalEvents.length) {
         S('gTotal', totalLabel);
-        S('gNote', 'No PrincipalFunded event yet, so the sNET Principal line has nothing before the live point above. ' + otherNote);
+        S('gNote', 'No PrincipalFunded/NetProcessed event yet, so the sNET Principal line has nothing before the live point above. ' + otherNote);
         showMsg('NO PRINCIPAL FUNDING YET', 'chart fills in once the reserve is funded');
         return;
       }
 
-      // Block timestamps for the deploy anchor (0) and each funding block, batched in one request —
-      // never guessed, and the RPC's own timestamps are the only source used for the x-axis.
-      var blocks = [C.deployBlock].concat(funded.map(function (f) { return f.block; }));
+      // Block timestamps for the deploy anchor (0) and each principal-changing block, batched in one
+      // request — never guessed, and the RPC's own timestamps are the only source used for the x-axis.
+      var blocks = [C.deployBlock].concat(principalEvents.map(function (f) { return f.block; }));
       var uniqBlocks = blocks.filter(function (b, i) { return blocks.indexOf(b) === i; });
       CH.rpc(uniqBlocks.map(function (b) { return ['eth_getBlockByNumber', [CH.hexN(b), false]]; })).then(function (blks) {
         var tsByBlock = {};
@@ -374,13 +389,13 @@
         // Historical points: real recorded values only. next round rewards / unclaimed stay at 0 —
         // no crystallize/epoch has happened yet, so 0 is a fact here, not an estimate.
         var pts = [{ t: tsByBlock[C.deployBlock], p: 0n, r: 0n, u: 0n }];
-        funded.forEach(function (f) { pts.push({ t: tsByBlock[f.block], p: f.value, r: 0n, u: 0n }); });
+        principalEvents.forEach(function (f) { pts.push({ t: tsByBlock[f.block], p: f.value, r: 0n, u: 0n }); });
         // Live point: the projected 50/50 split from refreshOverview (updates every 60s) — the only
         // point on this chart that's a preview rather than a recorded fact, flagged for the tooltip.
         if (LIVE) pts.push({ t: LIVE.ts, p: LIVE.principal, r: LIVE.nextRound, u: LIVE.liab, projected: true });
         drawGrowthChart(svg, pts);
         S('gTotal', totalLabel);
-        S('gNote', funded.length + ' funding event(s) plotted from PrincipalFunded’s own reported value. The live point previews the next 50/50 crystallize() split from principalValue()/principalCheckpoint() and updates every 60s — becomes final at the real crystallize(). ' + otherNote);
+        S('gNote', principalEvents.length + ' principal-funding event(s) plotted (PrincipalFunded/NetProcessed), each shown at its own reported value. The live point previews the next 50/50 crystallize() split from principalValue()/principalCheckpoint() and updates every 60s — becomes final at the real crystallize(). ' + otherNote);
       }).catch(function (e) {
         S('gTotal', 'UNAVAILABLE'); S('gNote', 'Could not read block times for the funding events: ' + esc(e.message || String(e)));
         showMsg('COULD NOT READ EVENT LOG');
@@ -511,7 +526,12 @@
     if (inelig) {
       var days = inelig.daysUntilEligible != null ? Number(inelig.daysUntilEligible) : null;
       S('m_eligYn', days != null ? 'Not yet — ' + days + ' day' + (days === 1 ? '' : 's') + ' left' : 'No');
-      S('m_age', inelig.youngestLotDays != null ? inelig.youngestLotDays + ' day' + (inelig.youngestLotDays === 1 ? '' : 's') + ' (youngest lot)' : '—');
+      // "Age" here is how long the oldest lot has been held, derived from the countdown the feed
+      // already gives us (minDays - daysUntilEligible) — the countdown to eligibility is anchored to
+      // the OLDEST lot, so the age shown must match, not the youngest lot's age (2026-09-29 bug fix,
+      // per Matteo: the static label already said "oldest lot", the value just didn't match it).
+      var oldestDays = (elig.eligibility && Number(elig.eligibility.minDays) > 0 && days != null) ? Number(elig.eligibility.minDays) - days : null;
+      S('m_age', oldestDays != null ? oldestDays + ' day' + (oldestDays === 1 ? '' : 's') + ' (oldest lot)' : '—');
       S('m_daysToElig', days != null ? days + ' day' + (days === 1 ? '' : 's') : '—');
       S('m_share', '—'); H('lotList', '');
       return;

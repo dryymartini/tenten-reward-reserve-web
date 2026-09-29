@@ -11,7 +11,7 @@ window.RR_CONFIG = Object.freeze({
   chainIdHex: '0x1237',
   chainName: 'Robinhood Chain',
   rpcUrl: 'https://rpc.mainnet.chain.robinhood.com',
-  explorer: 'https://robin.etherscan.io',
+  explorer: 'https://robinhoodchain.blockscout.com',
   nativeCurrency: Object.freeze({ name: 'ETH', symbol: 'ETH', decimals: 18 }),
 
   addresses: Object.freeze({

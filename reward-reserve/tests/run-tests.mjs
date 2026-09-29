@@ -83,7 +83,16 @@ const HEAD_BLOCK = 75130000;
 function makeRpc(opts) {
   return function handle(req) {
     const { method, params } = req;
-    if (method === 'eth_getBlockByNumber') return { number: '0x' + HEAD_BLOCK.toString(16), timestamp: '0x' + Math.floor(Date.now() / 1000).toString(16) };
+    if (method === 'eth_getBlockByNumber') {
+      const tag = params[0];
+      if (tag === 'latest') return { number: '0x' + HEAD_BLOCK.toString(16), timestamp: '0x' + Math.floor(Date.now() / 1000).toString(16) };
+      // Deterministic, block-ordered timestamps (~13s/block, offset back from "now" at HEAD_BLOCK) so
+      // historical growth-chart points actually land at distinct, correctly-ordered x positions instead
+      // of all collapsing onto the same instant — needed to test the hover step-function (2026-09-29).
+      const reqBlock = parseInt(tag, 16);
+      const ts = Math.floor(Date.now() / 1000) - (HEAD_BLOCK - reqBlock) * 13;
+      return { number: tag, timestamp: '0x' + Math.max(1, ts).toString(16) };
+    }
     if (method === 'eth_blockNumber') return '0x' + HEAD_BLOCK.toString(16);
     if (method === 'eth_getTransactionReceipt') return opts.receipt ? opts.receipt(params[0]) : null;
     if (method === 'eth_getLogs') { if (opts.logsFail) throw { code: -32000, message: 'query spans too many blocks (mocked failure)' }; return opts.logs || []; } // never fabricated: default is "no events yet"
@@ -278,10 +287,14 @@ await scenario('countdown-overdue', { rpc: makeRpc({ latestEpochId: 0, lastCryst
 // unconfirmed-layout events without inventing values, but DOES plot the sNET Principal line from
 // PrincipalFunded's own reported newPrincipalValue (its layout is confirmed)
 {
-  const T = ['0xf4165e6a03db2f59ebd929ce3b1189f8f17451c4e5a5e95f0a0d8fa2163f208c', '0x4b06ca08b73c7994c0673265cf727603b6487d8f60834d83b60d11a2e61b103f', '0xee89b274de26d8ff2f7a29873f93a4aeb474c4aba006584d53c8a39e71f41d2a', '0x383d1a5e22a4e150ccf658d9728c2f801e02667e7cce8a4b2edac14e6a8f91b5'];
+  const T = ['0xf4165e6a03db2f59ebd929ce3b1189f8f17451c4e5a5e95f0a0d8fa2163f208c', '0x4b06ca08b73c7994c0673265cf727603b6487d8f60834d83b60d11a2e61b103f', '0xee89b274de26d8ff2f7a29873f93a4aeb474c4aba006584d53c8a39e71f41d2a', '0x383d1a5e22a4e150ccf658d9728c2f801e02667e7cce8a4b2edac14e6a8f91b5', '0x0accc2a95ca9ea7149fcf6511254cfc03f8b30b887e605e11da3d35cb5f6a733'];
   // PrincipalFunded(address indexed from, uint256 amount, uint256 newPrincipalValue): data = [amount, newPrincipalValue]
-  const fundedLog = { topics: [T[3]], blockNumber: '0x47a6767', data: w(250000000) + w(7000000).slice(2) }; // newPrincipalValue = 7,000,000 (0.007 sNET @ 9 decimals)
-  const logs = [{ topics: [T[0]], data: '0x' }, { topics: [T[1]], data: '0x' }, { topics: [T[2]], data: '0x' }, { topics: [T[2]], data: '0x' }, fundedLog];
+  // Block chosen below HEAD_BLOCK (75130000) so its mocked timestamp lands in the past, like a real event.
+  const fundedLog = { topics: [T[3]], blockNumber: '0x47a4057', data: w(250000000) + w(7000000).slice(2) }; // block 75120727, newPrincipalValue = 7,000,000 (0.007 sNET @ 9 decimals)
+  // NetProcessed(uint256 netAmount, uint256 sNetCredited, uint256 newPrincipalValue), no indexed params,
+  // in a LATER block than fundedLog — must be merged into the same chronological principal series.
+  const processedLog = { topics: [T[4]], blockNumber: '0x47a443f', data: w(9000000) + w(9000000).slice(2) + w(16000000).slice(2) }; // block 75121727, newPrincipalValue = 16,000,000
+  const logs = [{ topics: [T[0]], data: '0x' }, { topics: [T[1]], data: '0x' }, { topics: [T[2]], data: '0x' }, { topics: [T[2]], data: '0x' }, fundedLog, processedLog];
   const { page: gPage } = await scenario('growth-events', { rpc: makeRpc({ latestEpochId: 0, logs }), wallet: null, addr: null });
   // hover tooltip: must show a date and all three series' values at the hovered point
   const tipProbe = await gPage.evaluate(() => {
@@ -296,6 +309,23 @@ await scenario('countdown-overdue', { rpc: makeRpc({ latestEpochId: 0, lastCryst
     return { hit: true, shownAfterHover, hiddenAfterLeave };
   });
   results[results.length - 1].tipProbe = tipProbe;
+  // step-function hover: hovering strictly between the funded (7,000,000) and processed (16,000,000)
+  // points must show the EARLIER (funded) point's value, never interpolate and never snap forward to
+  // the later, nearer-in-pixels event (2026-09-29, per Matteo)
+  const stepProbe = await gPage.evaluate(() => {
+    const svg = document.querySelector('#gChart svg'), hit = svg && svg.querySelector('.pghit');
+    if (!hit) return null;
+    const rect = svg.getBoundingClientRect();
+    // deploy anchor (t-fraction 0) / funded (~0.115) / processed (~0.21) / live (1.0) are spread
+    // left-to-right given the mock's block-ordered timestamps. The chart has a left margin (L=62 of
+    // W=1000), so a target t-fraction of 0.16 (strictly between funded and processed, numerically
+    // closer to processed) maps to pixel fraction (L + 0.16*(W-L-Rr))/W ≈ 0.21 of the rendered width —
+    // this only passes if the step function (not nearest-neighbor) is used
+    hit.dispatchEvent(new MouseEvent('mousemove', { clientX: rect.left + rect.width * 0.21, clientY: rect.top + rect.height / 2, bubbles: true }));
+    const tip = document.querySelector('#gcTip');
+    return tip ? tip.textContent : null;
+  });
+  results[results.length - 1].stepProbe = stepProbe;
 }
 
 // $ estimates: one of the two on-chain price reads reverts -> must show nothing ($ labels
@@ -372,14 +402,19 @@ if (overdue.monCountdown.trim() !== 'Ready') bad.push('countdown-overdue: a past
 // no PrincipalFunded -> counts the rest but no principal line yet; with a PrincipalFunded event ->
 // plots the sNET Principal line from its own reported value, other two lines still not fabricated
 for (const r of results.filter(r => r.name !== 'growth-events' && r.name !== 'growth-log-fail')) {
-  if (!/^0 events/i.test(r.gTotal) || !/no principalfunded event yet/i.test(r.gNote)) bad.push(r.name + ': growth chart with no on-chain events must say so explicitly, not show a fabricated series (gTotal=' + r.gTotal + ')');
+  if (!/^0 events/i.test(r.gTotal) || !/no principalfunded\/netprocessed event yet/i.test(r.gNote)) bad.push(r.name + ': growth chart with no on-chain events must say so explicitly, not show a fabricated series (gTotal=' + r.gTotal + ')');
   if (r.gHasPrincipalLine) bad.push(r.name + ": principal line rendered with no PrincipalFunded event on the wire");
 }
 const growth = results.find(r => r.name === 'growth-events');
-if (!/^5 /.test(growth.gTotal)) bad.push('growth-events: expected the mocked 5 events to be counted, got: ' + growth.gTotal);
+if (!/^6 /.test(growth.gTotal)) bad.push('growth-events: expected the mocked 6 events to be counted, got: ' + growth.gTotal);
 if (!/reward-pot\/unclaimed history needs the confirmed event layout/i.test(growth.gNote)) bad.push('growth-events: must flag that reward-pot/unclaimed values are pending event-ABI confirmation rather than plotting guessed numbers');
-if (!/1 funding event\(s\) plotted/i.test(growth.gNote)) bad.push('growth-events: must report the PrincipalFunded event as plotted, got gNote=' + growth.gNote);
-if (!growth.gHasPrincipalLine) bad.push('growth-events: expected a plotted sNET Principal line (path.pline) when a PrincipalFunded event is on the wire');
+if (!/2 principal-funding event\(s\) plotted \(PrincipalFunded\/NetProcessed\)/i.test(growth.gNote)) bad.push('growth-events: must report both the PrincipalFunded and NetProcessed events as merged/plotted, got gNote=' + growth.gNote);
+if (!growth.gHasPrincipalLine) bad.push('growth-events: expected a plotted sNET Principal line (path.pline) when a PrincipalFunded/NetProcessed event is on the wire');
+
+// ---- hover step function: a point strictly between two historical events must show the EARLIER
+// event's value, never interpolate and never snap forward to a later, pixel-nearer event (2026-09-29)
+if (!growth.stepProbe || !/0\.007/.test(growth.stepProbe)) bad.push('growth-events: hovering between two historical points must show the earlier point\'s (funded) value via a step function, got: ' + growth.stepProbe);
+if (growth.stepProbe && /0\.016/.test(growth.stepProbe)) bad.push('growth-events: hovering before the later (processed) historical point must not show its value — no interpolation or snap-forward, got: ' + growth.stepProbe);
 
 // ---- growth "live" point: populated from refreshOverview's own reads, so it must render on
 // every scenario regardless of the event-log outcome, and must NOT be hidden when the event-log

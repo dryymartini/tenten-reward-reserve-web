@@ -54,7 +54,12 @@
     // PrincipalFunded(address indexed from, uint256 amount, uint256 newPrincipalValue) — 2026-09-28,
     // per Matteo. Unlike the three above, its data layout is confirmed, so its `data` field (amount,
     // then newPrincipalValue — `from` is indexed, so it's not in `data`) is safe to decode.
-    PrincipalFunded:     '0x383d1a5e22a4e150ccf658d9728c2f801e02667e7cce8a4b2edac14e6a8f91b5'
+    PrincipalFunded:     '0x383d1a5e22a4e150ccf658d9728c2f801e02667e7cce8a4b2edac14e6a8f91b5',
+    // NetProcessed(uint256 netAmount, uint256 sNetCredited, uint256 newPrincipalValue) — 2026-09-29,
+    // per Matteo, no indexed params, so all three are in `data` in declaration order. Same meaning as
+    // PrincipalFunded's newPrincipalValue: the Principal right after this event: a second, separate
+    // source of real principal checkpoints (processNet(), not a direct sNET donation).
+    NetProcessed:        '0x0accc2a95ca9ea7149fcf6511254cfc03f8b30b887e605e11da3d35cb5f6a733'
   };
 
   // ---- ABI encode/decode ---------------------------------------------------
