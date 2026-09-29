@@ -89,6 +89,7 @@ function makeRpc(opts) {
         if (sel === '0x1848f6ec') return w(opts.verify === false ? 0 : 1); // verifyAllocation
         if (sel === '0xb53fdc08') return w(opts.lastCrystallization ?? 0); // lastCrystallization() — 0 = "not funded yet" by default
         if (sel === '0xf6257825') return w(opts.crystallizationPeriod ?? 604800); // CRYSTALLIZATION_PERIOD() — default 7 days
+        if (sel === '0x3669e517') return w(opts.principalCheckpoint ?? 700); // principalCheckpoint() — default: principalValue(1000) - 700 = 300 growth, so 150 projected next-round, 850 projected principal
       }
       if (to === TEN && sel === '0x70a08231') return w(opts.tenBalance ?? '990000000000000000000000'); // balanceOf
       if (to === SNET && sel === '0x70a08231') return w(opts.snetBalance ?? '250000000000'); // balanceOf
@@ -193,13 +194,17 @@ async function scenario(name, { rpc, wallet, epochsBaseUrl, autoConnect = true, 
     donateAddr: document.querySelector('#donateBox code') ? document.querySelector('#donateBox code').textContent : null,
     monSnetUsd: document.querySelector('[data-l="mon_snet_usd"]').textContent,
     monTenUsd: document.querySelector('[data-l="mon_ten_usd"]').textContent,
+    ovPrincipal: document.querySelector('[data-l="ov_principal"]').textContent,
     ovPrincipalUsd: document.querySelector('[data-l="ov_principal_usd"]').textContent,
     mBalUsd: document.querySelector('[data-l="m_bal_usd"]') ? document.querySelector('[data-l="m_bal_usd"]').textContent : null,
     mToClaimUsd: document.querySelector('[data-l="m_toClaim_usd"]') ? document.querySelector('[data-l="m_toClaim_usd"]').textContent : null,
     gLivePrincipal: document.querySelector('[data-l="gLivePrincipal"]') ? document.querySelector('[data-l="gLivePrincipal"]').textContent : null,
+    gLiveNextRound: document.querySelector('[data-l="gLiveNextRound"]') ? document.querySelector('[data-l="gLiveNextRound"]').textContent : null,
     gLiveLiab: document.querySelector('[data-l="gLiveLiab"]') ? document.querySelector('[data-l="gLiveLiab"]').textContent : null,
     gLiveAsOf: document.querySelector('[data-l="gLiveAsOf"]') ? document.querySelector('[data-l="gLiveAsOf"]').textContent : null,
-    gHasPrincipalLine: !!document.querySelector('#gChart svg path.pline')
+    gHasPrincipalLine: !!document.querySelector('#gChart svg path.pline'),
+    ovNextRound: document.querySelector('[data-l="ov_nextRound"]') ? document.querySelector('[data-l="ov_nextRound"]').textContent : null,
+    ovNextRoundUsd: document.querySelector('[data-l="ov_nextRound_usd"]') ? document.querySelector('[data-l="ov_nextRound_usd"]').textContent : null
   }));
   const shot = path.join(OUT, `${name}.png`);
   await page.screenshot({ path: shot, fullPage: true });
@@ -247,7 +252,20 @@ await scenario('countdown-overdue', { rpc: makeRpc({ latestEpochId: 0, lastCryst
   // PrincipalFunded(address indexed from, uint256 amount, uint256 newPrincipalValue): data = [amount, newPrincipalValue]
   const fundedLog = { topics: [T[3]], blockNumber: '0x47a6767', data: w(250000000) + w(7000000).slice(2) }; // newPrincipalValue = 7,000,000 (0.007 sNET @ 9 decimals)
   const logs = [{ topics: [T[0]], data: '0x' }, { topics: [T[1]], data: '0x' }, { topics: [T[2]], data: '0x' }, { topics: [T[2]], data: '0x' }, fundedLog];
-  await scenario('growth-events', { rpc: makeRpc({ latestEpochId: 0, logs }), wallet: null, addr: null });
+  const { page: gPage } = await scenario('growth-events', { rpc: makeRpc({ latestEpochId: 0, logs }), wallet: null, addr: null });
+  // hover tooltip: must show a date and all three series' values at the hovered point
+  const tipProbe = await gPage.evaluate(() => {
+    const svg = document.querySelector('#gChart svg'), hit = svg && svg.querySelector('.pghit');
+    if (!hit) return { hit: false };
+    const rect = svg.getBoundingClientRect();
+    hit.dispatchEvent(new MouseEvent('mousemove', { clientX: rect.left + rect.width * 0.9, clientY: rect.top + rect.height / 2, bubbles: true }));
+    const tip = document.querySelector('#gcTip');
+    const shownAfterHover = tip ? (tip.style.display === 'block' ? tip.textContent : null) : null;
+    hit.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }));
+    const hiddenAfterLeave = tip ? tip.style.display : null;
+    return { hit: true, shownAfterHover, hiddenAfterLeave };
+  });
+  results[results.length - 1].tipProbe = tipProbe;
 }
 
 // $ estimates: one of the two on-chain price reads reverts -> must show nothing ($ labels
@@ -312,7 +330,7 @@ for (const r of results.filter(r => r.name !== 'growth-events' && r.name !== 'gr
 }
 const growth = results.find(r => r.name === 'growth-events');
 if (!/^5 /.test(growth.gTotal)) bad.push('growth-events: expected the mocked 5 events to be counted, got: ' + growth.gTotal);
-if (!/reward-pot\/unclaimed values need the confirmed event layout/i.test(growth.gNote)) bad.push('growth-events: must flag that reward-pot/unclaimed values are pending event-ABI confirmation rather than plotting guessed numbers');
+if (!/reward-pot\/unclaimed history needs the confirmed event layout/i.test(growth.gNote)) bad.push('growth-events: must flag that reward-pot/unclaimed values are pending event-ABI confirmation rather than plotting guessed numbers');
 if (!/1 funding event\(s\) plotted/i.test(growth.gNote)) bad.push('growth-events: must report the PrincipalFunded event as plotted, got gNote=' + growth.gNote);
 if (!growth.gHasPrincipalLine) bad.push('growth-events: expected a plotted sNET Principal line (path.pline) when a PrincipalFunded event is on the wire');
 
@@ -327,6 +345,24 @@ for (const r of results) {
 const logFail = results.find(r => r.name === 'growth-log-fail');
 if (!/unavailable/i.test(logFail.gTotal)) bad.push('growth-log-fail: event-log read failure should show an explicit error, got gTotal=' + logFail.gTotal);
 if (!logFail.gLivePrincipal || logFail.gLivePrincipal === '--') bad.push('growth-log-fail: the live point must still render even when the historical event-log read fails');
+
+// ---- live 50/50 crystallize projection (principalValue=1000, principalCheckpoint=700 by default
+// -> growth=300, projected next round=150, projected principal=850; computed with BigInt, never floats)
+for (const r of results) {
+  if (r.ovNextRound === '--' || !r.ovNextRound) bad.push(r.name + ': Overview "next round rewards" projection did not render');
+  if (r.gLiveNextRound === '--' || !r.gLiveNextRound) bad.push(r.name + ': growth chart "live" next-round projection did not render');
+}
+const projScenario = results.find(r => r.name === 'no-wallet');
+if (!/^0\.000000850\s*sNET/.test(projScenario.ovPrincipal || '')) bad.push('no-wallet: expected projected principal 0.000000850 sNET (1000 - 300/2), got: ' + projScenario.ovPrincipal);
+if (!/^0\.000000150\s*sNET/.test(projScenario.ovNextRound || '')) bad.push('no-wallet: expected projected next-round rewards 0.000000150 sNET (300/2), got: ' + projScenario.ovNextRound);
+
+// ---- growth chart hover tooltip: must show a value for all three series at the hovered point
+if (!growth.tipProbe || !growth.tipProbe.hit) bad.push('growth-events: chart hit-area for hover/tap was not found');
+else {
+  const t = growth.tipProbe.shownAfterHover || '';
+  if (!/sNET principal/i.test(t) || !/next round rewards/i.test(t) || !/unclaimed rewards/i.test(t)) bad.push('growth-events: hover tooltip did not include all three series, got: ' + t);
+  if (growth.tipProbe.hiddenAfterLeave !== 'none') bad.push('growth-events: hover tooltip did not hide on mouseleave, style.display=' + growth.tipProbe.hiddenAfterLeave);
+}
 
 // ---- personal dashboard extras: eligibility/lots/share render from the epoch JSON already fetched for the claim flow
 const withLots = results.find(r => r.name === 'claim-ready');

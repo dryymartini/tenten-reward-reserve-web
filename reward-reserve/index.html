@@ -56,13 +56,14 @@
     <div class="body">
       <div class="vault">
         <div class="lcd in gauge">
-          <div class="k">Principal value</div>
+          <div class="k">Principal value · live projection</div>
           <div class="v" data-l="ov_principal">--</div>
           <div class="usd" data-l="ov_principal_usd"></div>
-          <div class="s">Read with <code>principalValue()</code>. Half of everything this generates compounds back in automatically.</div>
+          <div class="s">Live estimate — already includes half of the yield accrued since the last checkpoint, which stays in the reserve after the next distribution. Becomes final at the next <code>crystallize()</code>.</div>
         </div>
         <div class="side">
           <div class="kv">
+            <div title="Live estimate, updates automatically — becomes final at the next distribution."><span>Next round rewards · live estimate</span><span class="kvv"><b data-l="ov_nextRound">--</b><small class="usd" data-l="ov_nextRound_usd"></small></span></div>
             <div><span>Holder-side value · not yet assigned</span><span class="kvv"><b data-l="ov_holderside">--</b><small class="usd" data-l="ov_holderside_usd"></small></span></div>
             <div><span>Allocated / unclaimed</span><span class="kvv"><b data-l="ov_liab">--</b><small class="usd" data-l="ov_liab_usd"></small></span></div>
             <div><span>Solvency · isSolvent()</span><b data-l="ov_solvent">--</b></div>
@@ -109,7 +110,8 @@
     <div class="lcd in growth">
       <div class="glive">
         <span class="k">Current · live</span>
-        <span class="gv"><b data-l="gLivePrincipal">--</b><small>principal</small></span>
+        <span class="gv" title="Live projection — becomes final at the next crystallize()."><b data-l="gLivePrincipal">--</b><small>principal · projected</small></span>
+        <span class="gv" title="Live projection — becomes final at the next crystallize()."><b data-l="gLiveNextRound">--</b><small>next round · projected</small></span>
         <span class="gv"><b data-l="gLiveLiab">--</b><small>unclaimed</small></span>
         <span class="asof" data-l="gLiveAsOf"></span>
       </div>

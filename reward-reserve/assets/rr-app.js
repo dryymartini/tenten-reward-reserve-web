@@ -119,7 +119,8 @@
         CH.ethCall(R, CH.SEL.outstandingLiabilityValue, tag), CH.ethCall(R, CH.SEL.isSolvent, tag),
         CH.ethCall(R, CH.SEL.latestEpochId, tag),
         CH.ethCall(R, CH.SEL.lastCrystallization, tag), CH.ethCall(R, CH.SEL.crystallizationPeriod, tag),
-        CH.ethCall(A.snet, CH.encBalanceOf(R), tag), CH.ethCall(A.ten, CH.encBalanceOf(R), tag)
+        CH.ethCall(A.snet, CH.encBalanceOf(R), tag), CH.ethCall(A.ten, CH.encBalanceOf(R), tag),
+        CH.ethCall(R, CH.SEL.principalCheckpoint, tag)
       ];
       // $ estimates fetched separately (rpcSettled, not the strict batch above): a revert or
       // missing contract on either price read must never take down the reserve's own numbers,
@@ -137,7 +138,20 @@
       return Promise.all([CH.rpc(calls), priceP]).then(function (results) {
         var r = results[0];
         var principal = CH.u(r[0], 0), holderside = CH.u(r[1], 0), liab = CH.u(r[2], 0);
-        S('ov_principal', sn(principal)); S('ov_holderside', sn(holderside)); S('ov_liab', sn(liab));
+
+        // Live preview of the next 50/50 crystallize split (2026-09-29, per Matteo): the real split
+        // only happens on-chain at the next crystallize(), but principalCheckpoint() (the last
+        // recorded checkpoint) lets us project it client-side from the yield accrued since then.
+        // Computed as BigInt throughout so precision is never lost to a float. Clamped defensively —
+        // should never go negative, but a fresh/just-crystallized checkpoint could momentarily equal
+        // principalValue().
+        var checkpoint = CH.u(r[9], 0);
+        var growth = principal > checkpoint ? principal - checkpoint : 0n;
+        var projectedNextRound = growth / 2n;
+        var projectedPrincipal = principal - projectedNextRound;
+
+        S('ov_principal', sn(projectedPrincipal)); S('ov_holderside', sn(holderside)); S('ov_liab', sn(liab));
+        S('ov_nextRound', sn(projectedNextRound));
         S('ov_solvent', CH.boolAt(r[3], 0) ? 'SOLVENT' : 'INSOLVENT');
         var latestId = Number(CH.u(r[4], 0));
         S('ov_latestEpoch', num(latestId));
@@ -147,13 +161,15 @@
 
         // sNET is priced the same as NET (1:1 via unstake()), no separate read needed.
         S('mon_snet_usd', usdLabel(snetInReserve, DEC.snet, 'net')); S('mon_ten_usd', usdLabel(tenInReserve, DEC.ten, 'ten'));
-        S('ov_principal_usd', usdLabel(principal, DEC.snet, 'net')); S('ov_holderside_usd', usdLabel(holderside, DEC.snet, 'net')); S('ov_liab_usd', usdLabel(liab, DEC.snet, 'net'));
+        S('ov_principal_usd', usdLabel(projectedPrincipal, DEC.snet, 'net')); S('ov_holderside_usd', usdLabel(holderside, DEC.snet, 'net')); S('ov_liab_usd', usdLabel(liab, DEC.snet, 'net'));
+        S('ov_nextRound_usd', usdLabel(projectedNextRound, DEC.snet, 'net'));
 
-        // Growth section's "live" point: the same principal/liability values just read here,
-        // shown independently of the historical event-log fetch below — so it still appears
-        // and updates even when that fetch fails (see refreshGrowth()).
-        S('gLivePrincipal', sn(principal)); S('gLiveLiab', sn(liab)); S('gLiveAsOf', 'as of block ' + num(head.number));
-        LIVE = { principal: principal, ts: head.ts, block: head.number };
+        // Growth section's "live" point: the same values just read here (principal/next-round
+        // already projected, unclaimed real from outstandingLiabilityValue()), shown independently
+        // of the historical event-log fetch below — so it still appears and updates even when that
+        // fetch fails (see refreshGrowth()).
+        S('gLivePrincipal', sn(projectedPrincipal)); S('gLiveNextRound', sn(projectedNextRound)); S('gLiveLiab', sn(liab)); S('gLiveAsOf', 'as of block ' + num(head.number));
+        LIVE = { principal: projectedPrincipal, nextRound: projectedNextRound, liab: liab, ts: head.ts, block: head.number };
 
         var lastCryst = CH.u(r[5], 0), period = CH.u(r[6], 0);
         if (lastCryst === 0n) {
@@ -188,24 +204,31 @@
   // ------------------------------------------------------------ growth chart (event log, since deploy)
   // Crystallized / EpochPublished / AllocationClaimed topic0 hashes were supplied as-given (only
   // syntactic 32-byte hex checked). Decoding their `data` into actual reward-pot/unclaimed values
-  // needs their confirmed parameter layout, which isn't confirmed yet — so those two lines stay
-  // empty and this only counts/dates those three events, rather than guessing a field layout.
+  // needs their confirmed parameter layout, which isn't confirmed yet — so those two lines stay flat
+  // at 0 for every historical point (a real fact: no crystallize/epoch has happened yet) and this
+  // only counts/dates those three events, rather than guessing a field layout.
   // PrincipalFunded(address indexed from, uint256 amount, uint256 newPrincipalValue) is different:
   // Matteo gave its exact layout, so its own reported newPrincipalValue is plotted directly as the
-  // sNET Principal line — never estimated, just each event's own checkpoint.
-  // This is entirely independent of the "live" point above (populated in refreshOverview from
-  // values already read every 60s): a failure here never hides or blocks that live point, and the
-  // live principal/timestamp are reused (via LIVE) as the line's final point.
-  function drawPrincipalChart(svg, pts) {
+  // sNET Principal line for historical points — never estimated, just each event's own checkpoint.
+  // The final ("live") point is different again: it's the projected 50/50 crystallize split (see
+  // refreshOverview, which computes it every 60s from principalValue()/principalCheckpoint() and
+  // stores it in LIVE) — a preview of what crystallize() would produce right now, not a real event
+  // yet. A failure in this function never hides or blocks the "live" numbers above the chart, since
+  // those are set independently in refreshOverview.
+  var GC = null; // last-drawn chart's geometry + points, read by the hover/tap handlers below
+  function drawGrowthChart(svg, pts) {
     var W = 1000, Hh = 300, L = 62, Rr = 10, T = 14, B = 30;
     var t0 = pts[0].t, t1 = pts[pts.length - 1].t; if (t1 === t0) t1 = t0 + 3600;
-    var maxV = 1n; pts.forEach(function (pt) { if (pt.v > maxV) maxV = pt.v; });
+    var maxV = 1n;
+    pts.forEach(function (pt) { if (pt.p > maxV) maxV = pt.p; if (pt.r > maxV) maxV = pt.r; if (pt.u > maxV) maxV = pt.u; });
     var topV = maxV + maxV / 4n + 1n; // headroom so a flat line never sits on the top gridline
     var floorV = -(topV / 3n); // virtual floor so the deploy anchor (0) renders above the bottom axis
     var domain = topV - floorV;
     var X = function (t) { return L + (t - t0) / (t1 - t0) * (W - L - Rr); };
     var Y = function (v) { return T + (1 - Number((v - floorV) * 10000n / domain) / 10000) * (Hh - T - B); };
-    var o = '';
+    // invisible hit-area for hover/tap: transparent <svg> regions don't reliably receive pointer
+    // events in every browser, so interaction binds to this instead
+    var o = '<rect class="pghit" x="0" y="0" width="' + W + '" height="' + Hh + '" fill="transparent"/>';
     for (var i = 0; i <= 4; i++) {
       var v = topV * BigInt(Math.round(i / 4 * 10000)) / 10000n;
       o += '<line class="grid" x1="' + L + '" x2="' + (W - Rr) + '" y1="' + Y(v) + '" y2="' + Y(v) + '"/><text class="ax" x="' + (L - 6) + '" y="' + (Y(v) + 5) + '" text-anchor="end">' + sn(v).replace(' sNET', '') + '</text>';
@@ -214,10 +237,67 @@
       var t = t0 + (t1 - t0) * j / 4, d = new Date(t * 1000);
       o += '<text class="ax" x="' + X(t) + '" y="' + (Hh - 8) + '" text-anchor="' + (j === 0 ? 'start' : j === 4 ? 'end' : 'middle') + '">' + d.getUTCDate() + ' ' + ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getUTCMonth()] + '</text>';
     }
-    o += '<path class="pline" d="' + pts.map(function (pt, k) { return (k ? 'L' : 'M') + X(pt.t).toFixed(1) + ' ' + Y(pt.v).toFixed(1); }).join(' ') + '"/>';
-    o += pts.map(function (pt) { return '<circle class="pdot" cx="' + X(pt.t).toFixed(1) + '" cy="' + Y(pt.v).toFixed(1) + '" r="4.5"/>'; }).join('');
+    function line(cls, key) { return '<path class="' + cls + '" d="' + pts.map(function (pt, k) { return (k ? 'L' : 'M') + X(pt.t).toFixed(1) + ' ' + Y(pt[key]).toFixed(1); }).join(' ') + '"/>'; }
+    function dots(cls, key) { return pts.map(function (pt) { return '<circle class="' + cls + '" cx="' + X(pt.t).toFixed(1) + '" cy="' + Y(pt[key]).toFixed(1) + '" r="4.5"/>'; }).join(''); }
+    o += line('pline', 'p') + line('rline', 'r') + line('uline', 'u') + dots('pdot', 'p') + dots('rdot', 'r') + dots('udot', 'u');
     svg.innerHTML = o;
+    GC = { pts: pts, t0: t0, t1: t1, L: L, Rr: Rr, W: W, Hh: Hh, T: T, B: B, topV: topV, floorV: floorV, domain: domain };
+    bindGCHover();
   }
+
+  // ---- growth chart hover/tap: crosshair + a tooltip with all three series at that point -------
+  function gcX(t) { return GC.L + (t - GC.t0) / (GC.t1 - GC.t0) * (GC.W - GC.L - GC.Rr); }
+  function gcY(v) { return GC.T + (1 - Number((v - GC.floorV) * 10000n / GC.domain) / 10000) * (GC.Hh - GC.T - GC.B); }
+  function bindGCHover() {
+    // the hit-rect is a fresh DOM node every redraw (svg.innerHTML is replaced), so this rebinds
+    // every time rather than once, or a periodic refresh would leave a dead hit-rect with no listeners
+    var svg = $('#gChart svg'), hit = svg && svg.querySelector('.pghit'); if (!hit) return;
+    hit.addEventListener('mousemove', gcMove);
+    hit.addEventListener('mouseleave', function () { gcShowTip(null); });
+    // touch: a tap shows the tooltip pinned at the nearest point; tapping again hides it — a
+    // continuous hover doesn't exist on touch, so this is the mobile equivalent Matteo asked for
+    var tapped = false;
+    hit.addEventListener('touchstart', function (ev) {
+      if (tapped) { gcShowTip(null); tapped = false; return; }
+      var t = ev.touches[0]; if (t) { gcMove({ clientX: t.clientX }); tapped = true; }
+    }, { passive: true });
+  }
+  function gcMove(ev) {
+    if (!GC || !GC.pts.length) return;
+    var svg = $('#gChart svg'); if (!svg) return;
+    var rect = svg.getBoundingClientRect();
+    var px = (ev.clientX - rect.left) / rect.width * GC.W;
+    var t = GC.t0 + (px - GC.L) / (GC.W - GC.L - GC.Rr) * (GC.t1 - GC.t0);
+    var nearest = GC.pts[0], best = Infinity;
+    GC.pts.forEach(function (pt) { var d = Math.abs(pt.t - t); if (d < best) { best = d; nearest = pt; } });
+    gcShowTip(nearest);
+  }
+  function gcShowTip(pt) {
+    var svg = $('#gChart svg'), wrap = $('#gChart'); if (!svg || !wrap) return;
+    var tip = $('#gcTip');
+    if (!pt) { var g0 = svg.querySelector('#gcHoverG'); if (g0) g0.style.display = 'none'; if (tip) tip.style.display = 'none'; return; }
+    var g = svg.querySelector('#gcHoverG');
+    if (!g) {
+      g = document.createElementNS('http://www.w3.org/2000/svg', 'g'); g.id = 'gcHoverG';
+      g.innerHTML = '<line class="xline"/><circle class="hp" r="5"/><circle class="hr" r="5"/><circle class="hu" r="5"/>';
+      svg.appendChild(g);
+    }
+    g.style.display = '';
+    var x = gcX(pt.t), lineEl = g.querySelector('line'), circles = g.querySelectorAll('circle');
+    lineEl.setAttribute('x1', x); lineEl.setAttribute('x2', x); lineEl.setAttribute('y1', GC.T); lineEl.setAttribute('y2', GC.Hh - GC.B);
+    circles[0].setAttribute('cx', x); circles[0].setAttribute('cy', gcY(pt.p));
+    circles[1].setAttribute('cx', x); circles[1].setAttribute('cy', gcY(pt.r));
+    circles[2].setAttribute('cx', x); circles[2].setAttribute('cy', gcY(pt.u));
+    if (!tip) { tip = document.createElement('div'); tip.id = 'gcTip'; tip.className = 'gtip'; wrap.appendChild(tip); }
+    var d = new Date(pt.t * 1000);
+    var dateStr = d.getUTCDate() + ' ' + ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getUTCMonth()] + ', ' + ('0' + d.getUTCHours()).slice(-2) + ':' + ('0' + d.getUTCMinutes()).slice(-2) + ' UTC';
+    tip.innerHTML = esc(dateStr) + (pt.projected ? ' · projected' : ' · recorded') + '<br>sNET principal ' + esc(sn(pt.p)) + '<br>next round rewards ' + esc(sn(pt.r)) + '<br>unclaimed rewards ' + esc(sn(pt.u));
+    var leftPct = x / GC.W * 100;
+    if (leftPct > 55) { tip.style.right = (100 - leftPct + 2) + '%'; tip.style.left = 'auto'; }
+    else { tip.style.left = (leftPct + 2) + '%'; tip.style.right = 'auto'; }
+    tip.style.display = 'block';
+  }
+
   function refreshGrowth() {
     var svg = $('#gChart svg'); if (!svg) return;
     function showMsg(l1, l2) {
@@ -239,7 +319,7 @@
         var t = l.topics && l.topics[0];
         if (t === CH.TOPICS.Crystallized) byTopic.c++; else if (t === CH.TOPICS.EpochPublished) byTopic.e++; else if (t === CH.TOPICS.AllocationClaimed) byTopic.a++;
       });
-      var otherNote = byTopic.c + ' crystallization(s) · ' + byTopic.e + ' epoch(s) published · ' + byTopic.a + ' claim(s) — reward-pot/unclaimed values need the confirmed event layout before those two lines can be plotted without guessing.';
+      var otherNote = byTopic.c + ' crystallization(s) · ' + byTopic.e + ' epoch(s) published · ' + byTopic.a + ' claim(s) — reward-pot/unclaimed history needs the confirmed event layout before it can be plotted without guessing.';
       var totalLabel = logs.length + ' EVENT' + (logs.length === 1 ? '' : 'S') + ' SINCE DEPLOY';
 
       if (!funded.length) {
@@ -256,12 +336,16 @@
       CH.rpc(uniqBlocks.map(function (b) { return ['eth_getBlockByNumber', [CH.hexN(b), false]]; })).then(function (blks) {
         var tsByBlock = {};
         uniqBlocks.forEach(function (b, i) { tsByBlock[b] = Number(BigInt(blks[i].timestamp)); });
-        var pts = [{ t: tsByBlock[C.deployBlock], v: 0n }]; // a freshly deployed reserve holds nothing — a real fact, not an estimate
-        funded.forEach(function (f) { pts.push({ t: tsByBlock[f.block], v: f.value }); });
-        if (LIVE) pts.push({ t: LIVE.ts, v: LIVE.principal }); // extend to "now" with the same value shown in the live point above
-        drawPrincipalChart(svg, pts);
+        // Historical points: real recorded values only. next round rewards / unclaimed stay at 0 —
+        // no crystallize/epoch has happened yet, so 0 is a fact here, not an estimate.
+        var pts = [{ t: tsByBlock[C.deployBlock], p: 0n, r: 0n, u: 0n }];
+        funded.forEach(function (f) { pts.push({ t: tsByBlock[f.block], p: f.value, r: 0n, u: 0n }); });
+        // Live point: the projected 50/50 split from refreshOverview (updates every 60s) — the only
+        // point on this chart that's a preview rather than a recorded fact, flagged for the tooltip.
+        if (LIVE) pts.push({ t: LIVE.ts, p: LIVE.principal, r: LIVE.nextRound, u: LIVE.liab, projected: true });
+        drawGrowthChart(svg, pts);
         S('gTotal', totalLabel);
-        S('gNote', funded.length + ' funding event(s) plotted from PrincipalFunded’s own reported value. ' + otherNote);
+        S('gNote', funded.length + ' funding event(s) plotted from PrincipalFunded’s own reported value. The live point previews the next 50/50 crystallize() split from principalValue()/principalCheckpoint() and updates every 60s — becomes final at the real crystallize(). ' + otherNote);
       }).catch(function (e) {
         S('gTotal', 'UNAVAILABLE'); S('gNote', 'Could not read block times for the funding events: ' + esc(e.message || String(e)));
         showMsg('COULD NOT READ EVENT LOG');

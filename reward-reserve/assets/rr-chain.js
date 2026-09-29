@@ -35,6 +35,9 @@
                                           // solidity identifier is the all-caps constant name; the hash
                                           // Matteo gave matches CRYSTALLIZATION_PERIOD(), not a
                                           // camelCase crystallizationPeriod())
+    principalCheckpoint: '0x3669e517',   // principalCheckpoint() -> uint256, self-verified against
+                                          // Matteo's supplied selector — the last recorded checkpoint,
+                                          // used client-side to project the next 50/50 crystallize split
     // ERC-20 (TEN / sNET)
     balanceOf: '0x70a08231',
 
